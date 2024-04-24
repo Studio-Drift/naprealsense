@@ -10,10 +10,8 @@
 
 RTTI_BEGIN_CLASS(nap::RealSenseRenderPointCloudComponent)
         RTTI_PROPERTY("Device", &nap::RealSenseRenderPointCloudComponent::mDevice, nap::rtti::EPropertyMetaData::Required)
-        RTTI_PROPERTY("CameraTransform", &nap::RealSenseRenderPointCloudComponent::mCameraTransform, nap::rtti::EPropertyMetaData::Required)
         RTTI_PROPERTY("PointSize", &nap::RealSenseRenderPointCloudComponent::mPointSize, nap::rtti::EPropertyMetaData::Default)
         RTTI_PROPERTY("MaxDistance", &nap::RealSenseRenderPointCloudComponent::mMaxDistance, nap::rtti::EPropertyMetaData::Default)
-        RTTI_PROPERTY("FramesRenderer", &nap::RealSenseRenderPointCloudComponent::mFramesRenderer, nap::rtti::EPropertyMetaData::Required)
         RTTI_PROPERTY("IntrinsicsType", &nap::RealSenseRenderPointCloudComponent::mCameraIntrinsicsStreamType, nap::rtti::EPropertyMetaData::Default)
 RTTI_END_CLASS
 
@@ -34,6 +32,13 @@ namespace nap
     RealSenseRenderPointCloudComponent::~RealSenseRenderPointCloudComponent(){}
 
 
+    void RealSenseRenderPointCloudComponent::getDependentComponents(std::vector<rtti::TypeInfo> &components) const
+    {
+        components.push_back(RTTI_OF(RealSenseRenderFramesComponent));
+        components.push_back(RTTI_OF(TransformComponent));
+    }
+
+
     //////////////////////////////////////////////////////////////////////////
     // RealSenseRenderPointCloudComponentInstance
     //////////////////////////////////////////////////////////////////////////
@@ -47,13 +52,18 @@ namespace nap
 
     RealSenseRenderPointCloudComponentInstance::~RealSenseRenderPointCloudComponentInstance()
     {
-
     }
 
 
     bool RealSenseRenderPointCloudComponentInstance::init(utility::ErrorState& errorState)
     {
         if(!RenderableMeshComponentInstance::init(errorState))
+            return false;
+
+        if(!errorState.check(getEntityInstance()->hasComponent<RealSenseRenderPointCloudComponentInstance>(), "No RealSenseRenderFramesComponent found"))
+            return false;
+
+        if(!errorState.check(getEntityInstance()->hasComponent<TransformComponentInstance>(), "No TransformComponent found"))
             return false;
 
         // copy resources
@@ -90,18 +100,21 @@ namespace nap
         if(!isVisible())
             return;
 
-        mReady = mFramesRenderer->isRenderTextureInitialized(ERealSenseStreamType::REALSENSE_STREAMTYPE_DEPTH) &&
-                mFramesRenderer->isRenderTextureInitialized(ERealSenseStreamType::REALSENSE_STREAMTYPE_COLOR) &&
+        auto& frame_renderer = getEntityInstance()->getComponent<RealSenseRenderFramesComponentInstance>();
+
+        mReady = frame_renderer.isRenderTextureInitialized(ERealSenseStreamType::REALSENSE_STREAMTYPE_DEPTH) &&
+                frame_renderer.isRenderTextureInitialized(ERealSenseStreamType::REALSENSE_STREAMTYPE_COLOR) &&
                 mDevice->getIsConnected();
         if(!mReady)
             return;
 
+
         auto& material_instance = getMaterialInstance();
         auto* depth_sampler = material_instance.getOrCreateSampler<Sampler2DInstance>("depth_texture");
-        depth_sampler->setTexture(mFramesRenderer->getRenderTexture(ERealSenseStreamType::REALSENSE_STREAMTYPE_DEPTH));
+        depth_sampler->setTexture(frame_renderer.getRenderTexture(ERealSenseStreamType::REALSENSE_STREAMTYPE_DEPTH));
 
         auto* color_sampler = material_instance.getOrCreateSampler<Sampler2DInstance>("color_texture");
-        color_sampler->setTexture(mFramesRenderer->getRenderTexture(ERealSenseStreamType::REALSENSE_STREAMTYPE_COLOR));
+        color_sampler->setTexture(frame_renderer.getRenderTexture(ERealSenseStreamType::REALSENSE_STREAMTYPE_COLOR));
 
         const auto& camera_intrinsics = mDevice->getIntrincicsMap();
         const auto& intrinsics = camera_intrinsics.find(mCameraIntrinsicsStreamType)->second;
@@ -122,11 +135,11 @@ namespace nap
         ubo->getOrCreateUniform<UniformFloatArrayInstance>("coeffs")->setValue(intrinsics.mCoeffs[4], 4);
 
         //
+        auto& transform = getEntityInstance()->getComponent<TransformComponentInstance>();
         ubo = material_instance.getOrCreateUniform("UBO");
-        ubo->getOrCreateUniform<UniformVec3Instance>("camera_world_position")->setValue(math::extractPosition(mCameraTransform->getGlobalTransform()));
+        ubo->getOrCreateUniform<UniformVec3Instance>("camera_world_position")->setValue(math::extractPosition(transform.getGlobalTransform()));
         ubo->getOrCreateUniform<UniformFloatInstance>("realsense_depth_scale")->setValue(depth_scale);
         ubo->getOrCreateUniform<UniformFloatInstance>("point_size_scale")->setValue(mPointSize);
         ubo->getOrCreateUniform<UniformFloatInstance>("max_distance")->setValue(mMaxDistance);
-
     }
 }

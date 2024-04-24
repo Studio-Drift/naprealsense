@@ -37,10 +37,10 @@ namespace nap
 
         RealSenseRenderPointCloudComponentInstance* getInstance();
 
+        void getDependentComponents(std::vector<rtti::TypeInfo> &components) const override;
+
         ERealSenseStreamType mCameraIntrinsicsStreamType = ERealSenseStreamType::REALSENSE_STREAMTYPE_DEPTH;
         ResourcePtr<RealSenseDevice> mDevice; ///< Property: 'Device' the device this component renders the point cloud from
-        ComponentPtr<TransformComponent> mCameraTransform; ///< Property: 'CameraTransform' the camera transform
-        ComponentPtr<RealSenseRenderFramesComponent> mFramesRenderer; ///< Property: 'FramesRenderer'
         float mPointSize = 1.0f; ///< Property: 'PointSize'
         float mMaxDistance = 5.0f; ///< Property: 'MaxDistance'
     private:
@@ -86,8 +86,6 @@ namespace nap
         void onDraw(nap::IRenderTarget &renderTarget, VkCommandBuffer commandBuffer, const glm::mat4 &viewMatrix, const glm::mat4 &projectionMatrix) override;
     protected:
     private:
-        ComponentInstancePtr<TransformComponent> mCameraTransform = { this, &RealSenseRenderPointCloudComponent::mCameraTransform };
-        ComponentInstancePtr<RealSenseRenderFramesComponent> mFramesRenderer = { this, &RealSenseRenderPointCloudComponent::mFramesRenderer };
         RealSenseDevice* mDevice;
         float mPointSize;
         float mMaxDistance;

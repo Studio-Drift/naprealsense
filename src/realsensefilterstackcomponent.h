@@ -42,7 +42,7 @@ namespace nap
     };
 
     /**
-     * RealSenseRenderFrameComponentInstance creates a RenderTexture2D and renders a frame into it
+     * RealSenseFilterStackComponentInstance
      */
     class NAPAPI RealSenseFilterStackComponentInstance : public RealSenseFrameSetListenerComponentInstance
     {
@@ -60,8 +60,16 @@ namespace nap
          */
         virtual ~RealSenseFilterStackComponentInstance();
 
+        /**
+         * Adds a frame set listener
+         * @param framesetListener
+         */
         void addFrameSetListener(RealSenseFrameSetListenerComponentInstance* framesetListener);
 
+        /**
+         * Removes a frame set listener
+         * @param framesetListener
+         */
         void removeFrameSetListener(RealSenseFrameSetListenerComponentInstance* framesetListener);
 
         /**
@@ -70,6 +78,9 @@ namespace nap
          */
         virtual void trigger(RealSenseDevice* device, const rs2::frameset& frameset) override;
 
+        /**
+         * Removes all frame set listeners
+         */
         void clear() override;
     protected:
         /**

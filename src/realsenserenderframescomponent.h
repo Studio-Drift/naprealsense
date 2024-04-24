@@ -43,7 +43,8 @@ namespace nap
          */
         RealSenseRenderFramesComponentInstance* getInstance();
 
-        ComponentPtr<RealSenseFilterStackComponent> mFilterStack;
+        void getDependentComponents(std::vector<rtti::TypeInfo> &components) const override;
+
         std::vector<RealSenseRenderFrameDescription> mRenderDescriptions;
         bool mEnabled = true;
     private:
@@ -115,8 +116,6 @@ namespace nap
          */
         void update(double deltaTime) override;
     private:
-        ComponentInstancePtr<RealSenseFilterStackComponent> mFilterStack = { this, &RealSenseRenderFramesComponent::mFilterStack };
-
         std::vector<RealSenseRenderFrameDescription> mRenderDescriptions;
         std::map<ERealSenseStreamType, std::unique_ptr<RenderTexture2D>> mRenderTextures;
         std::map<ERealSenseStreamType, bool> mInitializationMap;

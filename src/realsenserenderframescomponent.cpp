@@ -1,5 +1,6 @@
 #include "realsenserenderframescomponent.h"
 #include "realsensedevice.h"
+#include "../../napimgui/src/imguiservice.h"
 
 #include <rs.hpp>
 
@@ -9,7 +10,6 @@ RTTI_BEGIN_STRUCT(nap::RealSenseRenderFrameDescription)
 RTTI_END_STRUCT
 
 RTTI_BEGIN_CLASS(nap::RealSenseRenderFramesComponent)
-    RTTI_PROPERTY("FilterStack", &nap::RealSenseRenderFramesComponent::mFilterStack, nap::rtti::EPropertyMetaData::Default)
     RTTI_PROPERTY("RenderDescriptions", &nap::RealSenseRenderFramesComponent::mRenderDescriptions, nap::rtti::EPropertyMetaData::Embedded)
     RTTI_PROPERTY("Enabled", &nap::RealSenseRenderFramesComponent::mEnabled, nap::rtti::EPropertyMetaData::Default)
 RTTI_END_CLASS
@@ -68,6 +68,12 @@ namespace nap
     RealSenseRenderFramesComponentInstance::~RealSenseRenderFramesComponentInstance(){}
 
 
+    void RealSenseRenderFramesComponent::getDependentComponents(std::vector<rtti::TypeInfo> &components) const
+    {
+        components.emplace_back(RTTI_OF(RealSenseFilterStackComponent));
+    }
+
+
     bool RealSenseRenderFramesComponentInstance::onInit(utility::ErrorState &errorState)
     {
         mImplementation = std::make_unique<Impl>();
@@ -94,7 +100,11 @@ namespace nap
             mInitializationMap.emplace(description.mStreamType, false);
         }
 
-        mFilterStack->addFrameSetListener(this);
+        if(!errorState.check(getEntityInstance()->hasComponent<RealSenseFilterStackComponentInstance>(), "Entity has no RealSenseFilterStackComponentInstance"))
+            return false;
+
+        auto& filter_stack = getEntityInstance()->getComponent<RealSenseFilterStackComponentInstance>();
+        filter_stack.addFrameSetListener(this);
 
         return true;
     }
@@ -102,7 +112,14 @@ namespace nap
 
     void RealSenseRenderFramesComponentInstance::destroy()
     {
-        mFilterStack->removeFrameSetListener(this);
+        auto& filter_stack = getEntityInstance()->getComponent<RealSenseFilterStackComponentInstance>();
+        filter_stack.removeFrameSetListener(this);
+
+        auto* imgui_service = getEntityInstance()->getCore()->getService<IMGuiService>();
+        for(auto& render_texture : mRenderTextures)
+        {
+            imgui_service->removeTextureHandle(*render_texture.second);
+        }
     }
 
 
