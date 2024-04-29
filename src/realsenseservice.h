@@ -74,6 +74,19 @@ namespace nap
          * @return vector of all serial numbers connected
          */
         const std::vector<std::string>& getConnectedSerialNumbers() const{ return mConnectedSerialNumbers; }
+
+        /**
+         * Returns camera info for a specific serial number, asserts when serial is not connected, first use hasSerialNumber
+         * @param serial serial number
+         * @return camera info
+         */
+        const RealSenseCameraInfo& getCameraInfo(const std::string& serial);
+
+        // Signal is dispatched on main thread when camera is removed
+        Signal<const std::string&> mDeviceRemoved;
+
+        // Signal is dispatched on main thread when camera is added
+        Signal<const std::string&> mDeviceAdded;
 	private:
         /**
          * Registers a RealSenseDevice
@@ -97,6 +110,8 @@ namespace nap
 
         // current registered devices
         std::vector<RealSenseDevice*> mDevices;
+
+        std::unordered_map<std::string, RealSenseCameraInfo> mAvailableCameraInfos;
 
         // Impl contains the rs2::context
         struct Impl;

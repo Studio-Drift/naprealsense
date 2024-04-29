@@ -65,13 +65,25 @@ namespace nap
             {
                 rs2::device device = list[i];
 
-                nap::Logger::info("RealSense device %i, an %s", i,  device.get_info(RS2_CAMERA_INFO_NAME));
-                nap::Logger::info("    Serial number: %s", device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
-                nap::Logger::info("    Firmware version: %s", device.get_info(RS2_CAMERA_INFO_FIRMWARE_VERSION));
-                nap::Logger::info("    USB description: %s", device.get_info(RS2_CAMERA_INFO_USB_TYPE_DESCRIPTOR));
+                std::string serial = std::string(device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
+                RealSenseCameraInfo info;
+                info.mSerial = serial;
+                info.mSerial = std::string(device.get_info(rs2_camera_info::RS2_CAMERA_INFO_SERIAL_NUMBER));
+                info.mFirmware = std::string(device.get_info(rs2_camera_info::RS2_CAMERA_INFO_FIRMWARE_VERSION));
+                info.mProductID = std::string(device.get_info(rs2_camera_info::RS2_CAMERA_INFO_PRODUCT_ID));
+                info.mProductLine = std::string(device.get_info(rs2_camera_info::RS2_CAMERA_INFO_PRODUCT_LINE));
+                info.mUSBDescription = std::string(device.get_info(rs2_camera_info::RS2_CAMERA_INFO_USB_TYPE_DESCRIPTOR));
+                info.mName = std::string(device.get_info(rs2_camera_info::RS2_CAMERA_INFO_NAME));
 
+                nap::Logger::info("RealSense device %i, an %s", i, info.mProductID.c_str());
+                nap::Logger::info("    Serial number: %s", info.mSerial.c_str());
+                nap::Logger::info("    Firmware version: %s", info.mFirmware.c_str());
+                nap::Logger::info("    USB description: %s", info.mUSBDescription.c_str());
 
-                serials.emplace_back(std::string(device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER)));
+                serials.emplace_back(serial);
+                mConnectedSerialNumbers.emplace_back(serial);
+                mAvailableCameraInfos.emplace(serial, info);
+                mDeviceAdded.trigger(serial);
             }
 
             // set the serial numbers
@@ -97,6 +109,13 @@ namespace nap
 
 		return true;
 	}
+
+
+    const RealSenseCameraInfo& RealSenseService::getCameraInfo(const std::string& serial)
+    {
+        assert(mAvailableCameraInfos.find(serial)!=mAvailableCameraInfos.end());
+        return mAvailableCameraInfos[serial];
+    }
 
 
 	void RealSenseService::update(double deltaTime)
@@ -130,8 +149,26 @@ namespace nap
                     if(it == mConnectedSerialNumbers.end())
                     {
                         nap::Logger::info(utility::stringFormat("New RealSense device connected : %s", serial.c_str()));
+
+                        std::string serial = std::string(device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
+                        RealSenseCameraInfo info;
+                        info.mSerial = serial;
+                        info.mSerial = std::string(device.get_info(rs2_camera_info::RS2_CAMERA_INFO_SERIAL_NUMBER));
+                        info.mFirmware = std::string(device.get_info(rs2_camera_info::RS2_CAMERA_INFO_FIRMWARE_VERSION));
+                        info.mProductID = std::string(device.get_info(rs2_camera_info::RS2_CAMERA_INFO_PRODUCT_ID));
+                        info.mProductLine = std::string(device.get_info(rs2_camera_info::RS2_CAMERA_INFO_PRODUCT_LINE));
+                        info.mUSBDescription = std::string(device.get_info(rs2_camera_info::RS2_CAMERA_INFO_USB_TYPE_DESCRIPTOR));
+                        info.mName = std::string(device.get_info(rs2_camera_info::RS2_CAMERA_INFO_NAME));
+
+                        nap::Logger::info("RealSense device %i, an %s", i, info.mProductID.c_str());
+                        nap::Logger::info("    Serial number: %s", info.mSerial.c_str());
+                        nap::Logger::info("    Firmware version: %s", info.mFirmware.c_str());
+                        nap::Logger::info("    USB description: %s", info.mUSBDescription.c_str());
+
                         mConnectedSerialNumbers.emplace_back(serial);
+                        mAvailableCameraInfos.emplace(serial, info);
                         devices_to_restart.emplace_back(serial);
+                        mDeviceAdded.trigger(serial);
                     }
                 }
 
@@ -150,6 +187,8 @@ namespace nap
                         nap::Logger::info(utility::stringFormat("RealSense device disconnected %s", serial.c_str()));
                         devices_to_stop.emplace_back(serial);
                         c_it = mConnectedSerialNumbers.erase(c_it);
+                        mAvailableCameraInfos.erase(serial);
+                        mDeviceRemoved.trigger(serial);
                     }else
                     {
                         c_it++;
