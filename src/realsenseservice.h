@@ -4,6 +4,9 @@
 
 #pragma once
 
+// Local includes
+#include "realsensetypes.h"
+
 // External Includes
 #include <nap/service.h>
 #include <rtti/factory.h>
