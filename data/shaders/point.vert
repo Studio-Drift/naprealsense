@@ -4,6 +4,20 @@
 
 #version 450 core
 
+
+/**
+typedef enum rs2_distortion
+{
+RS2_DISTORTION_NONE
+RS2_DISTORTION_MODIFIED_BROWN_CONRADY, 1
+RS2_DISTORTION_INVERSE_BROWN_CONRADY , 2
+RS2_DISTORTION_FTHETA                , 3
+RS2_DISTORTION_BROWN_CONRADY         , 4
+RS2_DISTORTION_KANNALA_BRANDT4       , 5
+RS2_DISTORTION_COUNT
+} rs2_distortion;
+*/
+
 uniform nap
 {
 	mat4 projectionMatrix;
@@ -13,8 +27,10 @@ uniform nap
 
 uniform UBO
 {
+	uniform vec3 		camera_world_position;
 	uniform float		realsense_depth_scale;
-	uniform float		point_size;
+	uniform float		point_size_scale;
+	uniform float 		max_distance;
 } ubo;
 
 uniform cam_intrinsics
@@ -122,15 +138,23 @@ vec3 deproject_pixel_to_point(vec2 pixel, float depth)
 
 void main(void)
 {
-	vec3 p = deproject_pixel_to_point(in_UV0.xy, texture(depth_texture, in_UV0.xy).r);
-	p.y *= -1.0;
+	float r = texture(depth_texture, in_UV0.xy).r;
+	vec4 c = texture(color_texture, in_UV0.xy).rgba;
+	if(r>0.0)
+	{
+		vec3 p = deproject_pixel_to_point(in_UV0.xy, r);
+		p.y *= -1.0;
 
-	gl_Position =
-		mvp.projectionMatrix *
-		mvp.viewMatrix *
-		mvp.modelMatrix * vec4(p, 1);
+		gl_Position =
+			mvp.projectionMatrix *
+			mvp.viewMatrix *
+			mvp.modelMatrix * vec4(p, 1);
 
-	// Pass color and uv's
-	pass_Color = texture(color_texture, in_UV0.xy).rgba;
-	gl_PointSize = ubo.point_size;
+		pass_Color = c;
+
+		gl_PointSize = ubo.point_size_scale;
+	}else
+	{
+		pass_Color = vec4(0,0,0,0);
+	}
 }

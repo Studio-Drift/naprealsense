@@ -66,6 +66,12 @@ namespace nap
          */
         bool isRenderTextureInitialized() const{ return mTextureInitialized; }
 
+        /**
+         * Called upon receiving a new frameset, called from RealSense device
+         * @param frameset a new frameset
+         */
+         void trigger(nap::RealSenseDevice *device, const rs2::frameset &frameset) override;
+
     protected:
         /**
          * Internal init method
@@ -85,11 +91,7 @@ namespace nap
          */
         void update(double deltaTime) override;
 
-        /**
-         * Called upon receiving a new frameset, called from RealSense device
-         * @param frameset a new frameset
-         */
-        void onTrigger(const rs2::frameset& frameset);
+
     private:
         std::unique_ptr<RenderTexture2D> mRenderTexture;
         RealSenseRenderFrameComponent* mResource;

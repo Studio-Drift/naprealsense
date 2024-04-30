@@ -9,10 +9,10 @@
 #include <rs.hpp>
 
 RTTI_BEGIN_CLASS(nap::RealSenseRenderPointCloudComponent)
-    RTTI_PROPERTY("Device", &nap::RealSenseRenderPointCloudComponent::mDevice, nap::rtti::EPropertyMetaData::Required)
-    RTTI_PROPERTY("PointSize", &nap::RealSenseRenderPointCloudComponent::mPointSize, nap::rtti::EPropertyMetaData::Default)
-    RTTI_PROPERTY("DepthRenderer", &nap::RealSenseRenderPointCloudComponent::mDepthRenderer, nap::rtti::EPropertyMetaData::Required)
-    RTTI_PROPERTY("ColorRenderer", &nap::RealSenseRenderPointCloudComponent::mColorRenderer, nap::rtti::EPropertyMetaData::Required)
+        RTTI_PROPERTY("Device", &nap::RealSenseRenderPointCloudComponent::mDevice, nap::rtti::EPropertyMetaData::Required)
+        RTTI_PROPERTY("PointSize", &nap::RealSenseRenderPointCloudComponent::mPointSize, nap::rtti::EPropertyMetaData::Default)
+        RTTI_PROPERTY("MaxDistance", &nap::RealSenseRenderPointCloudComponent::mMaxDistance, nap::rtti::EPropertyMetaData::Default)
+        RTTI_PROPERTY("IntrinsicsType", &nap::RealSenseRenderPointCloudComponent::mCameraIntrinsicsStreamType, nap::rtti::EPropertyMetaData::Default)
 RTTI_END_CLASS
 
 RTTI_BEGIN_CLASS_NO_DEFAULT_CONSTRUCTOR(nap::RealSenseRenderPointCloudComponentInstance)
@@ -25,14 +25,24 @@ namespace nap
     // RealSenseRenderPointCloudComponent
     //////////////////////////////////////////////////////////////////////////
 
-    RealSenseRenderPointCloudComponent::RealSenseRenderPointCloudComponent() = default;
+
+    RealSenseRenderPointCloudComponent::RealSenseRenderPointCloudComponent(){}
 
 
-    RealSenseRenderPointCloudComponent::~RealSenseRenderPointCloudComponent() = default;
+    RealSenseRenderPointCloudComponent::~RealSenseRenderPointCloudComponent(){}
+
+
+    void RealSenseRenderPointCloudComponent::getDependentComponents(std::vector<rtti::TypeInfo> &components) const
+    {
+        components.push_back(RTTI_OF(RealSenseRenderFramesComponent));
+        components.push_back(RTTI_OF(TransformComponent));
+    }
+
 
     //////////////////////////////////////////////////////////////////////////
     // RealSenseRenderPointCloudComponentInstance
     //////////////////////////////////////////////////////////////////////////
+
 
     RealSenseRenderPointCloudComponentInstance::RealSenseRenderPointCloudComponentInstance(EntityInstance& entity, Component& resource)
         : RenderableMeshComponentInstance(entity, resource)
@@ -40,7 +50,9 @@ namespace nap
     }
 
 
-    RealSenseRenderPointCloudComponentInstance::~RealSenseRenderPointCloudComponentInstance() = default;
+    RealSenseRenderPointCloudComponentInstance::~RealSenseRenderPointCloudComponentInstance()
+    {
+    }
 
 
     bool RealSenseRenderPointCloudComponentInstance::init(utility::ErrorState& errorState)
@@ -48,12 +60,25 @@ namespace nap
         if(!RenderableMeshComponentInstance::init(errorState))
             return false;
 
+        if(!errorState.check(getEntityInstance()->hasComponent<RealSenseRenderPointCloudComponentInstance>(), "No RealSenseRenderFramesComponent found"))
+            return false;
+
+        if(!errorState.check(getEntityInstance()->hasComponent<TransformComponentInstance>(), "No TransformComponent found"))
+            return false;
+
+        // copy resources
         auto* resource = getComponent<RealSenseRenderPointCloudComponent>();
         mDevice = resource->mDevice.get();
         mPointSize = resource->mPointSize;
+        mMaxDistance = resource->mMaxDistance;
+        mCameraIntrinsicsStreamType = resource->mCameraIntrinsicsStreamType;
+
+        // set instance
+        resource->mInstance = this;
 
         return true;
     }
+
 
     void RealSenseRenderPointCloudComponentInstance::onDraw(nap::IRenderTarget& renderTarget,
                                                             VkCommandBuffer commandBuffer, const glm::mat4& viewMatrix,
@@ -64,33 +89,38 @@ namespace nap
     }
 
 
+    RealSenseRenderPointCloudComponentInstance* RealSenseRenderPointCloudComponent::getInstance()
+    {
+        return mInstance;
+    }
+
+
     void RealSenseRenderPointCloudComponentInstance::update(double deltaTime)
     {
-        // make sure there is a depth and color texture available
-        mReady = mDepthRenderer->isRenderTextureInitialized() && mColorRenderer->isRenderTextureInitialized();
+        if(!isVisible())
+            return;
+
+        auto& frame_renderer = getEntityInstance()->getComponent<RealSenseRenderFramesComponentInstance>();
+
+        mReady = frame_renderer.isRenderTextureInitialized(ERealSenseStreamType::REALSENSE_STREAMTYPE_DEPTH) &&
+                frame_renderer.isRenderTextureInitialized(ERealSenseStreamType::REALSENSE_STREAMTYPE_COLOR) &&
+                mDevice->getIsConnected();
         if(!mReady)
             return;
 
-        // get material instance
+
         auto& material_instance = getMaterialInstance();
-
-        // assign depth
         auto* depth_sampler = material_instance.getOrCreateSampler<Sampler2DInstance>("depth_texture");
-        depth_sampler->setTexture(mDepthRenderer->getRenderTexture());
+        depth_sampler->setTexture(frame_renderer.getRenderTexture(ERealSenseStreamType::REALSENSE_STREAMTYPE_DEPTH));
 
-        // assign rgb
         auto* color_sampler = material_instance.getOrCreateSampler<Sampler2DInstance>("color_texture");
-        color_sampler->setTexture(mColorRenderer->getRenderTexture());
+        color_sampler->setTexture(frame_renderer.getRenderTexture(ERealSenseStreamType::REALSENSE_STREAMTYPE_COLOR));
 
-        // obtain camera intrinsics from depth camera
         const auto& camera_intrinsics = mDevice->getIntrincicsMap();
-        const auto& intrinsics = camera_intrinsics.find(ERealSenseStreamType::REALSENSE_STREAMTYPE_DEPTH)->second;
+        const auto& intrinsics = camera_intrinsics.find(mCameraIntrinsicsStreamType)->second;
 
-        // obtain depth scale
-        float depth_scale = mDevice->getDepthScale();
-
-        // obtain camera intrinsics UBO from point cloud shader, assign properties
         auto* ubo = material_instance.getOrCreateUniform("cam_intrinsics");
+        float depth_scale = mDevice->getDepthScale();
         ubo->getOrCreateUniform<UniformFloatInstance>("width")->setValue(intrinsics.mWidth);
         ubo->getOrCreateUniform<UniformFloatInstance>("height")->setValue(intrinsics.mHeight);
         ubo->getOrCreateUniform<UniformFloatInstance>("ppx")->setValue(intrinsics.mPPX);
@@ -104,9 +134,12 @@ namespace nap
         ubo->getOrCreateUniform<UniformFloatArrayInstance>("coeffs")->setValue(intrinsics.mCoeffs[3], 3);
         ubo->getOrCreateUniform<UniformFloatArrayInstance>("coeffs")->setValue(intrinsics.mCoeffs[4], 4);
 
-        // assign depth scale and point size to shader UBO
+        //
+        auto& transform = getEntityInstance()->getComponent<TransformComponentInstance>();
         ubo = material_instance.getOrCreateUniform("UBO");
+        ubo->getOrCreateUniform<UniformVec3Instance>("camera_world_position")->setValue(math::extractPosition(transform.getGlobalTransform()));
         ubo->getOrCreateUniform<UniformFloatInstance>("realsense_depth_scale")->setValue(depth_scale);
-        ubo->getOrCreateUniform<UniformFloatInstance>("point_size")->setValue(mPointSize);
+        ubo->getOrCreateUniform<UniformFloatInstance>("point_size_scale")->setValue(mPointSize);
+        ubo->getOrCreateUniform<UniformFloatInstance>("max_distance")->setValue(mMaxDistance);
     }
 }

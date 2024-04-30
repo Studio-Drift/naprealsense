@@ -4,16 +4,26 @@
 
 #pragma once
 
+// Local includes
+#include "realsensetypes.h"
+
 // External Includes
 #include <nap/service.h>
 #include <rtti/factory.h>
+#include <nap/timer.h>
+#include <concurrentqueue.h>
+#include <future>
 
 namespace nap
 {
 	//////////////////////////////////////////////////////////////////////////
+
     // forward declares
     class RealSenseDevice;
 
+    /**
+     * RealSenseService
+     */
 	class NAPAPI RealSenseService : public Service
 	{
         friend class RealSenseDevice;
@@ -44,19 +54,70 @@ namespace nap
 		 */
 		virtual bool init(nap::utility::ErrorState& errorState) override;
 
-        /**
-         * Returns true if a device with given serial number is registered
-         * @param serialNumber the serial number to check
-         * @return true if a device with given serial number is registered
-         */
-        bool hasSerialNumber(const std::string& serialNumber) const;
+		/**
+		 * updates any tweens
+		 * @param deltaTime deltaTime
+		 */
+		virtual void update(double deltaTime) override;
+
+		/**
+		 * called when service is shutdown, deletes all tweens
+		 */
+		void shutdown() override;
 
         /**
-         * Returns const reference to vector of all serial number of connected realsense devices
-         * @return const reference to vector of all serial number of connected realsense devices
+         * Check whether device with serial number is present
+         * @param serialNumber
+         * @return true if device is present
+         */
+        bool hasSerialNumber(const std::string& serialNumber);
+
+        /**
+         * Returns vector of all serial numbers connected
+         * @return vector of all serial numbers connected
          */
         const std::vector<std::string>& getConnectedSerialNumbers() const{ return mConnectedSerialNumbers; }
+
+        /**
+         * Returns camera info for a specific serial number, asserts when serial is not connected, first use hasSerialNumber
+         * @param serial serial number
+         * @return camera info
+         */
+        const RealSenseCameraInfo& getCameraInfo(const std::string& serial);
+
+        // Signal is dispatched on main thread when camera is removed
+        Signal<const std::string&> mDeviceRemoved;
+
+        // Signal is dispatched on main thread when camera is added
+        Signal<const std::string&> mDeviceAdded;
 	private:
+        /**
+         * Registers a RealSenseDevice
+         * @param device pointer to RealSenseDevice
+         * @param errorState contains any errors
+         * @return true on success
+         */
+        bool registerDevice(RealSenseDevice* device, utility::ErrorState& errorState);
+
+        /**
+         * Removes a RealSenseDevice
+         * @param device pointer to RealSenseDevice
+         */
+        void removeDevice(RealSenseDevice* device);
+
+        // The query task
+        std::atomic_bool        mQueryDevices = { false };
+
+        // conencted serial numbers with mutex
         std::vector<std::string> mConnectedSerialNumbers;
+
+        // current registered devices
+        std::vector<RealSenseDevice*> mDevices;
+
+        std::unordered_map<std::string, RealSenseCameraInfo> mAvailableCameraInfos;
+
+        // Impl contains the rs2::context
+        struct Impl;
+        std::unique_ptr<Impl> mImpl;
 	};
 }

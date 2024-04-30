@@ -1,4 +1,5 @@
 #include <rtti/rtti.h>
+#include <rs.h>
 
 #include "realsensetypes.h"
 
@@ -48,3 +49,45 @@ RTTI_ENUM_VALUE(nap::ERealSenseStreamType::REALSENSE_STREAMTYPE_GPIO, "GPIO"),
 RTTI_ENUM_VALUE(nap::ERealSenseStreamType::REALSENSE_STREAMTYPE_POSE, "Pose"),
 RTTI_ENUM_VALUE(nap::ERealSenseStreamType::REALSENSE_STREAMTYPE_CONFIDENCE, "Confidence")
 RTTI_END_ENUM
+
+namespace nap
+{
+    //////////////////////////////////////////////////////////////////////////
+    // RealSenseCameraIntrincics
+    //////////////////////////////////////////////////////////////////////////
+
+    RealSenseCameraIntrinsics RealSenseCameraIntrinsics::fromRS2Intrinsics(const rs2_intrinsics& intrinsics)
+    {
+        RealSenseCameraIntrinsics realsense_intrinsics;
+        realsense_intrinsics.mHeight = intrinsics.height;
+        realsense_intrinsics.mWidth = intrinsics.width;
+        for(int i = 0 ; i < 5; i++)
+        {
+            realsense_intrinsics.mCoeffs[i] = intrinsics.coeffs[i];
+        }
+        realsense_intrinsics.mFX = intrinsics.fx;
+        realsense_intrinsics.mFY = intrinsics.fy;
+        realsense_intrinsics.mPPX = intrinsics.ppx;
+        realsense_intrinsics.mPPY = intrinsics.ppy;
+        realsense_intrinsics.mModel = static_cast<ERealSenseDistortionModels>(intrinsics.model);
+        return realsense_intrinsics;
+    }
+
+
+    rs2_intrinsics RealSenseCameraIntrinsics::toRS2Intrinsics() const
+    {
+        rs2_intrinsics intrinsics;
+        intrinsics.height = mHeight;
+        intrinsics.width = mWidth;
+        for(int i = 0 ; i < 5; i++)
+        {
+            intrinsics.coeffs[i] = mCoeffs[i];
+        }
+        intrinsics.fx = mFX;
+        intrinsics.fy = mFY;
+        intrinsics.ppx = mPPX;
+        intrinsics.ppy = mPPY;
+        intrinsics.model = static_cast<rs2_distortion>(intrinsics.model);
+        return intrinsics;
+    }
+}

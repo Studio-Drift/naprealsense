@@ -4,7 +4,7 @@
 #include <rect.h>
 #include <renderablemeshcomponent.h>
 
-#include "realsenserenderframecomponent.h"
+#include "realsenserenderframescomponent.h"
 #include "realsenseframesetlistenercomponent.h"
 #include "pointcloudmesh.h"
 
@@ -12,17 +12,16 @@ namespace nap
 {
     //////////////////////////////////////////////////////////////////////////
 
-    // forward declares
     class RealSenseDevice;
     class RealSenseRenderPointCloudComponentInstance;
     class RenderService;
 
     /**
      * RealSenseRenderPointCloudComponent
-     * RenderableMesh component that renders a pointcloud
      */
     class NAPAPI RealSenseRenderPointCloudComponent : public RenderableMeshComponent
     {
+        friend class RealSenseRenderPointCloudComponentInstance;
     RTTI_ENABLE(RenderableMeshComponent)
     DECLARE_COMPONENT(RealSenseRenderPointCloudComponent, RealSenseRenderPointCloudComponentInstance)
     public:
@@ -36,25 +35,26 @@ namespace nap
          */
         virtual ~RealSenseRenderPointCloudComponent();
 
-        // Properties
-        ResourcePtr<RealSenseDevice> mDevice; ///< Property: 'Device' the device of which to extract the pointcloud
-        ComponentPtr<RealSenseRenderFrameComponent> mDepthRenderer; ///< Property: 'DepthRenderer' the render frame component that renders the depth frame into a texture
-        ComponentPtr<RealSenseRenderFrameComponent> mColorRenderer; ///< Property: 'ColorRenderer' the render frame component that renders the color frame into a texture
-        float mPointSize = 1.0f; ///< Property: 'PointSize' size of the point cloud points
+        RealSenseRenderPointCloudComponentInstance* getInstance();
+
+        void getDependentComponents(std::vector<rtti::TypeInfo> &components) const override;
+
+        ERealSenseStreamType mCameraIntrinsicsStreamType = ERealSenseStreamType::REALSENSE_STREAMTYPE_DEPTH;
+        ResourcePtr<RealSenseDevice> mDevice; ///< Property: 'Device' the device this component renders the point cloud from
+        float mPointSize = 1.0f; ///< Property: 'PointSize'
+        float mMaxDistance = 5.0f; ///< Property: 'MaxDistance'
+    private:
+        RealSenseRenderPointCloudComponentInstance* mInstance = nullptr;
     };
 
-    /**
-     * RealSenseRenderPointCloudComponentInstance
-     * RenderableMeshComponentInstance that renders a pointcloud
-     */
     class NAPAPI RealSenseRenderPointCloudComponentInstance : public RenderableMeshComponentInstance
     {
     RTTI_ENABLE(RenderableMeshComponentInstance)
     public:
         /**
          * Constructor
-         * @param entity reference to entity instance
-         * @param resource reference to component
+         * @param entity
+         * @param resource
          */
         RealSenseRenderPointCloudComponentInstance(EntityInstance& entity, Component& resource);
 
@@ -64,7 +64,7 @@ namespace nap
         virtual ~RealSenseRenderPointCloudComponentInstance();
 
         /**
-         * Initialization method
+         * Initialization
          * @param errorState contains any errors
          * @return true on success
          */
@@ -77,15 +77,19 @@ namespace nap
         virtual void update(double deltaTime);
 
         /**
-         * Renders the pointcloud
-          */
+         *
+         * @param renderTarget
+         * @param commandBuffer
+         * @param viewMatrix
+         * @param projectionMatrix
+         */
         void onDraw(nap::IRenderTarget &renderTarget, VkCommandBuffer commandBuffer, const glm::mat4 &viewMatrix, const glm::mat4 &projectionMatrix) override;
     protected:
     private:
-        ComponentInstancePtr<RealSenseRenderFrameComponent> mDepthRenderer = { this, &RealSenseRenderPointCloudComponent::mDepthRenderer };
-        ComponentInstancePtr<RealSenseRenderFrameComponent> mColorRenderer = { this, &RealSenseRenderPointCloudComponent::mColorRenderer };
         RealSenseDevice* mDevice;
         float mPointSize;
+        float mMaxDistance;
         bool mReady = false;
+        ERealSenseStreamType mCameraIntrinsicsStreamType;
     };
 }

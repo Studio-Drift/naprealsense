@@ -12,7 +12,6 @@ namespace nap
 
     /**
      * PointCloudMesh
-     * A mesh that consists of points. Amount of points is determined by rows and columns
      */
     class NAPAPI PointCloudMesh : public IMesh
     {
@@ -20,7 +19,7 @@ namespace nap
     public:
         /**
          * Constructor
-         * @param core reference to NAP core
+         * @param core
          */
         PointCloudMesh(Core& core);
 
@@ -30,38 +29,42 @@ namespace nap
         virtual ~PointCloudMesh();
 
         /**
-         * Initialization method, creates mesh
+         * Initializes and uploads the mesh
          * @param errorState contains any error
          * @return true on success
          */
         virtual bool init(utility::ErrorState& errorState) override;
 
         /**
-         * Returns MeshInstance reference
-         * @return MeshInstance reference
+         * Creates the mesh
+         * @param errorState contains any error
+         * @return true on success
+         */
+        bool setup(utility::ErrorState& error);
+
+        /**
+         * Returns mesh instance
+         * @return mesh instance
          */
         virtual MeshInstance& getMeshInstance() override					{ return *mMeshInstance; }
 
         /**
-         * Returns const MeshInstance reference
-         * @return const MeshInstance reference
+         * Returns const mesh instance
+         * @return const mesh instance
          */
         virtual const MeshInstance& getMeshInstance() const override		{ return *mMeshInstance; }
 
         // property: the size of the plane
-        ECullMode		mCullMode		= ECullMode::None;	///< Property: 'CullMode' Plane cull mode, defaults to no culling
-        int             mRows           = 100;              ///< Property: 'Rows' Amount of rows
-        int             mColums         = 100;              ///< Property: 'Columns' Amount of columns
-        float           mSize           = 1.0f;             ///< Property: 'Size' size
+        int             mRows           = 100; ///< Property: 'Rows' amount of rows
+        int             mColums         = 100; ///< Property: 'Columns' amount of columns
+        float           mSize           = 1.0f; ///< Property: 'Size' size in units
+        EMemoryUsage	mUsage			= EMemoryUsage::Static; ///< Property: 'Usage' memory usage
+        ECullMode		mCullMode		= ECullMode::None; ///< Property: 'CullMode' cull mode
 
-        /**
-         * Constructs pointcloud and updates mesh
-         * @param mesh reference to MeshInstance
-         */
+
         void constructPointCloud(nap::MeshInstance& mesh);
     private:
         EPolygonMode	mPolygonMode	= EPolygonMode::Point;
-        EMemoryUsage	mUsage			= EMemoryUsage::Static;
 
         RenderService* mRenderService;
         std::unique_ptr<MeshInstance> mMeshInstance;

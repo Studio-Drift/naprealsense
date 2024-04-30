@@ -63,14 +63,12 @@ namespace nap
         mRenderTexture->mHeight = 0;
         mRenderTexture->mClearColor = { 0, 0, 0 , 0 };
         mRenderTexture->mColorSpace = EColorSpace::Linear;
-        mRenderTexture->mFormat = mFormat;
+        mRenderTexture->mColorFormat = mFormat;
 
         for(auto& filter : mResource->mFilters)
         {
             mFilters.emplace_back(filter.get());
         }
-
-        frameSetReceived.connect([this](const rs2::frameset& frameset){ onTrigger(frameset); });
 
         return true;
     }
@@ -100,8 +98,8 @@ namespace nap
                 mRenderTexture->mHeight = video_frame.get_height();
                 mRenderTexture->mClearColor = { 0, 0, 0 , 0 };
                 mRenderTexture->mColorSpace = EColorSpace::Linear;
-                mRenderTexture->mFormat = mFormat;
-                mRenderTexture->mUsage = ETextureUsage::DynamicWrite;
+                mRenderTexture->mColorFormat = mFormat;
+                mRenderTexture->mUsage = Texture::EUsage::DynamicWrite;
 
                 utility::ErrorState error_state;
                 mTextureInitialized = mRenderTexture->init(error_state);
@@ -117,7 +115,7 @@ namespace nap
     }
 
 
-    void RealSenseRenderFrameComponentInstance::onTrigger(const rs2::frameset &frameset)
+    void RealSenseRenderFrameComponentInstance::trigger(RealSenseDevice* device, const rs2::frameset &frameset)
     {
         for(const auto& frame : frameset)
         {

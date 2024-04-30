@@ -25,23 +25,31 @@ namespace nap
     // forward declares
     class RealSenseService;
     class RealSenseFrameSetListenerComponentInstance;
-    class RealSenseFrameSetAlignFilter;
+    class RealSenseFrameSetFilter;
 
     /**
-     * RealSenseStreamDescription
-     * Describes a stream that can be fetched by a RealSenseDevice
+     * Describes a RealSenseStream provided by the device/camera
      */
     class NAPAPI RealSenseStreamDescription final : public Resource
     {
     RTTI_ENABLE(Resource)
     public:
-        ERealSenseStreamFormat  mFormat     = ERealSenseStreamFormat::REALSENSE_FORMAT_RGBA8; ///< Property: 'Format' The stream format
-        ERealSenseStreamType    mStream     = ERealSenseStreamType::REALSENSE_STREAMTYPE_COLOR; ///< Property: 'Stream' The stream type
+        /**
+         * Constructor
+         */
+        RealSenseStreamDescription();
+
+        /**
+         * Destructor
+         */
+        virtual ~RealSenseStreamDescription();
+
+        ERealSenseStreamFormat  mFormat     = ERealSenseStreamFormat::REALSENSE_FORMAT_RGBA8; ///< Property: 'Format' stream format
+        ERealSenseStreamType    mStream     = ERealSenseStreamType::REALSENSE_STREAMTYPE_COLOR; ///< Property: 'Stream' stream type
     };
 
     /**
-     * RealSenseDevice
-     * Interface to a RealSense camera or device. Tries to fetch a stream from the device.
+     * Interface for a RealSense device/camera
      */
     class NAPAPI RealSenseDevice final : public Device
     {
@@ -49,7 +57,7 @@ namespace nap
     public:
         /**
          * Constructor
-         * @param service reference to the RealSenseService
+         * @param service
          */
         RealSenseDevice(RealSenseService& service);
 
@@ -58,72 +66,101 @@ namespace nap
          */
         virtual ~RealSenseDevice();
 
+        virtual bool init(utility::ErrorState& errorState) override;
+
         /**
-         * Opens a pipe with the realsense camera and tries to open streams as set in the stream descriptions property.
-         * Returns false on failure
-         * @param errorState contains any errors on start
+         * Called when device needs to start
+         * @param errorState contains any errors
          * @return true on success
          */
         virtual bool start(utility::ErrorState& errorState) override final;
 
+        bool restart(utility::ErrorState& errorState);
+
         /**
-         * Closes the pipe
+         * Called when device needs to stop
          */
         virtual void stop() override final;
 
         /**
-         * Called before destruction, stops device
+         * Called before deconstruction
          */
         virtual void onDestroy() override final;
 
         /**
-         * Adds a RealSenseFrameSetListenerComponentInstance that is interested in process framesets
+         * Adds a frameset listener
          * @param frameSetListener
          */
         void addFrameSetListener(RealSenseFrameSetListenerComponentInstance *frameSetListener);
 
         /**
-         * Removes a RealSenseFrameSetListenerComponentInstance that is interested in process framesets
+         * Removes a frameset listener
          * @param frameSetListener
          */
         void removeFrameSetListener(RealSenseFrameSetListenerComponentInstance* frameSetListener);
 
         /**
-         * Returns depth scale of realsense device
-         * @return depth scale of realsense device
+         * Returns map of camera intrinsics of every available stream
+         * @return map of camera intrinsics of every available stream
+         */
+        const std::unordered_map<ERealSenseStreamType, RealSenseCameraIntrinsics>& getIntrincicsMap() const{ return mCameraIntrinsics; }
+
+        /**
+         * Returns current depth scale in meters per unit
+         * @return current depth scale in meters per unit
          */
         float getDepthScale() const;
 
         /**
-         * Returns camera intrinsics map of all available camera intrinsics
-         * @return camera intrinsics map of all available camera intrinsics
+         * Returns camera info
+         * @return camera info
          */
-        const std::unordered_map<ERealSenseStreamType, RealSenseCameraIntrincics>& getIntrincicsMap() const
-        { return mCameraIntrinsics; }
+        const RealSenseCameraInfo& getCameraInfo() const{ return mCameraInfo; }
+
+        /**
+         * Returns whether current device is connected
+         * @return true on connected
+         */
+        bool getIsConnected() const{ return mIsConnected; }
 
         // properties
-        std::string mSerial;    ///< Property: 'Serial' Serial of the device, keep empty to assign first available device
-        int mMaxFrameSize = 5;  ///< Property: 'MaxFrameSize' maximum frame size of frame queue
-        std::vector<ResourcePtr<RealSenseStreamDescription>> mStreams; ///< Property: 'Streams' stream descriptions of streams to fetch from device
-        std::vector<ResourcePtr<RealSenseFrameSetAlignFilter>> mFilters; ///< Property: 'Filters' filters applied to frameset before frameset is signalled to any listeners
-        bool mAllowFailure = false; ///< Property: 'AllowFailure' allow failure of this device on initialization
+        std::string mSerial; ///< Property: 'Serial' serial of device to use, keep empty to get first device available
+        int mMaxFrameSize = 5; ///< Property: 'MaxFrameSize' maximum size of frame queue
+        std::vector<ResourcePtr<RealSenseStreamDescription>> mStreams; ///< Property: 'Streams' settings for desired streams
+        bool mAllowFailure = false; ///< Property: 'AllowFailure' return init success upon init failure
+        float mMinimalRequiredUSBType = 3.0f; ///< Property: 'MinimumUSBVersion'
     private:
         /**
-         * Threaded process function
+         * Handles error, when device is allowed to fail, will return true and log the error, otherwise it will return false
+         * preventing successful app initialization
+         * @param successCondition the success condition
+         * @param errorMessage corresponding error message
+         * @param errorState errorState struct to full
+         * @return true on success, false on error
+         */
+        bool handleError(bool successCondition, const std::string& errorMessage, utility::ErrorState& errorState);
+
+        /**
+         * The threaded process function
          */
         void process();
 
         std::future<void>		mCaptureTask;
         std::atomic_bool        mRun = { false };
-        float                   mDepthScale = 0.0f ;
+        std::atomic<float>      mLatestDepthScale;
+
+        bool mIsConnected = false;
 
         RealSenseService&       mService;
+        RealSenseCameraInfo     mCameraInfo;
 
         struct Impl;
         std::unique_ptr<Impl>   mImplementation;
+        std::string mDeviceSerial;
 
         std::vector<RealSenseFrameSetListenerComponentInstance*> mFrameSetListeners;
-        std::unordered_map<ERealSenseStreamType, RealSenseCameraIntrincics> mCameraIntrinsics;
+        std::mutex mFrameSetListenerMutex;
+        std::unordered_map<ERealSenseStreamType, RealSenseCameraIntrinsics> mCameraIntrinsics;
     };
 
     using RealSenseDeviceObjectCreator = rtti::ObjectCreator<RealSenseDevice, RealSenseService>;

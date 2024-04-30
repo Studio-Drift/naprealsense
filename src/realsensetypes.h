@@ -2,6 +2,9 @@
 
 #include <nap/core.h>
 
+// forward declares
+struct rs2_intrinsics;
+
 namespace nap
 {
     enum NAPAPI ERealSenseStreamType : int
@@ -65,7 +68,7 @@ namespace nap
         RS2_DISTORTION_COUNT                 = 6  /**< Number of enumeration values. Not a valid input: intended to be used in for-loops. */
     } ;
 
-    struct NAPAPI RealSenseCameraIntrincics
+    struct NAPAPI RealSenseCameraIntrinsics
     {
         int           mWidth;     /**< Width of the image in pixels */
         int           mHeight;    /**< Height of the image in pixels */
@@ -75,5 +78,19 @@ namespace nap
         float         mFY;        /**< Focal length of the image plane, as a multiple of pixel height */
         ERealSenseDistortionModels mModel;    /**< Distortion model of the image */
         float         mCoeffs[5]; /**< Distortion coefficients. Order for Brown-Conrady: [k1, k2, p1, p2, k3]. Order for F-Theta Fish-eye: [k1, k2, k3, k4, 0]. Other models are subject to their own interpretations */
+
+        static RealSenseCameraIntrinsics fromRS2Intrinsics(const rs2_intrinsics& intrinsics);
+
+        rs2_intrinsics toRS2Intrinsics() const;
+    };
+
+    struct NAPAPI RealSenseCameraInfo
+    {
+        std::string mName;
+        std::string mSerial;
+        std::string mFirmware;
+        std::string mProductID;
+        std::string mProductLine;
+        std::string mUSBDescription;
     };
 }
