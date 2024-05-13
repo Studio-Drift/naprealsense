@@ -13,7 +13,6 @@ endif()
 
 if(NAP_BUILD_CONTEXT MATCHES "framework_release")
     if(UNIX)
-        # Install realsense lib into packaged app
-        install(FILES $<TARGET_FILE:realsenselib> DESTINATION lib)
+        install(DIRECTORY ${REALSENSE_LIBS_DIR}/lib/ DESTINATION lib)
     endif()
 endif()
