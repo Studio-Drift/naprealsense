@@ -1,5 +1,4 @@
 #include "realsensefilterstackcomponent.h"
-#include "realsensedevice.h"
 #include "realsenseframesetfilter.h"
 
 #include <rs.hpp>

@@ -1,13 +1,13 @@
 #pragma once
 
 #include "realsenseframesetlistenercomponent.h"
+#include "realsensedevice.h"
 
 namespace nap
 {
     //////////////////////////////////////////////////////////////////////////
     class RealSenseFrameSetFilter;
     class RealSenseFilterStackComponentInstance;
-    class RealSenseDevice;
 
     /**
      * RealSenseRenderFrameComponent
