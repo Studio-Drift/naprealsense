@@ -143,7 +143,7 @@ namespace nap
                         render_texture->mClearColor = { 0, 0, 0 , 0 };
                         render_texture->mColorSpace = EColorSpace::Linear;
                         render_texture->mColorFormat = description.mFormat;
-                        render_texture->mUsage = Texture::EUsage::DynamicWrite;
+                        render_texture->mUsage = Texture2D::EUsage::DynamicWrite;
 
                         utility::ErrorState error_state;
                         mInitializationMap[stream_type] = render_texture->init(error_state);

@@ -99,7 +99,7 @@ namespace nap
                 mRenderTexture->mClearColor = { 0, 0, 0 , 0 };
                 mRenderTexture->mColorSpace = EColorSpace::Linear;
                 mRenderTexture->mColorFormat = mFormat;
-                mRenderTexture->mUsage = Texture::EUsage::DynamicWrite;
+                mRenderTexture->mUsage = Texture2D::EUsage::DynamicWrite;
 
                 utility::ErrorState error_state;
                 mTextureInitialized = mRenderTexture->init(error_state);
