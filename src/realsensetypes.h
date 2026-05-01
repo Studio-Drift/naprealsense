@@ -4,6 +4,7 @@
 
 // forward declares
 struct rs2_intrinsics;
+namespace rs2 { struct device; }
 
 namespace nap
 {
@@ -86,10 +87,13 @@ namespace nap
 
     struct NAPAPI RealSenseCameraInfo
     {
+        RealSenseCameraInfo() = default;
+        RealSenseCameraInfo(const rs2::device& device);
+
         std::string mName;
+        std::string mType;
         std::string mSerial;
         std::string mFirmware;
-        std::string mProductID;
         std::string mProductLine;
         std::string mUSBDescription;
     };

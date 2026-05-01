@@ -9,7 +9,6 @@
 #include <nap/resourceptr.h>
 #include <nap/signalslot.h>
 #include <rtti/factory.h>
-#include <thread>
 #include <future>
 #include <atomic>
 
@@ -44,8 +43,8 @@ namespace nap
          */
         virtual ~RealSenseStreamDescription();
 
-        ERealSenseStreamFormat  mFormat     = ERealSenseStreamFormat::REALSENSE_FORMAT_RGBA8; ///< Property: 'Format' stream format
-        ERealSenseStreamType    mStream     = ERealSenseStreamType::REALSENSE_STREAMTYPE_COLOR; ///< Property: 'Stream' stream type
+        ERealSenseStreamFormat  mFormat = REALSENSE_FORMAT_RGBA8;       ///< Property: 'Format' stream format
+        ERealSenseStreamType    mStream = REALSENSE_STREAMTYPE_COLOR;   ///< Property: 'Stream' stream type
     };
 
     /**

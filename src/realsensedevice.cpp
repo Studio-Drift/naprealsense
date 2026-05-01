@@ -1,7 +1,6 @@
 #include "realsensedevice.h"
 #include "realsenseservice.h"
 #include "realsenseframesetlistenercomponent.h"
-#include "realsenseframesetfilter.h"
 
 // RealSense includes
 #include <rs.hpp>
@@ -36,10 +35,11 @@ namespace nap
     // RealSenseDevice::Impl
     //////////////////////////////////////////////////////////////////////////
 
-
     struct RealSenseDevice::Impl
     {
-    public:
+        Impl(rs2::context context) :
+            mPipe(context) {}
+
         // Declare RealSense pipeline, encapsulating the actual device and sensors
         rs2::pipeline mPipe;
 
@@ -55,10 +55,8 @@ namespace nap
     // RealSenseDevice
     //////////////////////////////////////////////////////////////////////////
 
-
-    RealSenseDevice::RealSenseDevice(RealSenseService &service) : mService(service)
-    {
-    }
+    RealSenseDevice::RealSenseDevice(RealSenseService &service) :
+        mService(service) { }
 
 
     RealSenseDevice::~RealSenseDevice(){}
@@ -66,7 +64,7 @@ namespace nap
 
     bool RealSenseDevice::init(utility::ErrorState &errorState)
     {
-        if(!handleError(mService.registerDevice(this, errorState), "Cannot register device", errorState))
+        if (!handleError(mService.registerDevice(this, errorState), "Cannot register device", errorState))
             return mAllowFailure;
 
         return true;
@@ -77,15 +75,18 @@ namespace nap
     {
         if(!mRun.load())
         {
-            mImplementation = std::make_unique<Impl>();
+            const auto* context = static_cast<const rs2::context*>(mService.getContext());
+            assert(context != nullptr);
+
+            mImplementation = std::make_unique<Impl>(*context);
             mImplementation->mFrameQueue = rs2::frame_queue(mMaxFrameSize);
 
-            if(!handleError(!mService.getConnectedSerialNumbers().empty(), "No RealSense devices connected!", errorState))
+            if (!handleError(!mService.getConnectedSerialNumbers().empty(), "No RealSense devices connected!", errorState))
                 return mAllowFailure;
 
-            if(!mSerial.empty())
+            if (!mSerial.empty())
             {
-                if(!handleError(mService.hasSerialNumber(mSerial),
+                if (!handleError(mService.hasSerialNumber(mSerial),
                                 utility::stringFormat("Device with serial number %s is not connected", mSerial.c_str()),
                                 errorState))
                     return mAllowFailure;
@@ -95,27 +96,23 @@ namespace nap
             mImplementation->mConfig.disable_all_streams();
 
             std::vector<ERealSenseStreamType> stream_types;
-            for(const auto& stream : mStreams)
+            for (const auto& stream : mStreams)
             {
                 auto stream_type = stream->mStream;
-                if(std::find_if(stream_types.begin(),
-                                stream_types.end(),
-                                [stream_type](ERealSenseStreamType other)
-                                    { return stream_type == other; }) != stream_types.end())
+                const auto it = std::find_if(stream_types.begin(), stream_types.end(), [stream_type](ERealSenseStreamType other) { return stream_type == other; });
+                if (it != stream_types.end())
                 {
                     errorState.fail("Cannot open multiple streams of the same stream type!");
                     return mAllowFailure;
                 }
-
                 stream_types.emplace_back(stream_type);
 
-                rs2_stream rs2_stream_type      = static_cast<rs2_stream>(stream->mStream);
-                rs2_format rs2_stream_format    = static_cast<rs2_format>(stream->mFormat);
+                auto rs2_stream_type = static_cast<rs2_stream>(stream->mStream);
+                auto rs2_stream_format = static_cast<rs2_format>(stream->mFormat);
                 mImplementation->mConfig.enable_stream(rs2_stream_type, rs2_stream_format);
             }
 
-            //
-            if(!mSerial.empty())
+            if (!mSerial.empty())
                 mImplementation->mConfig.enable_device(mSerial);
 
             try
@@ -125,42 +122,40 @@ namespace nap
                 /**
                  * Gather camera intrinsics for all streams
                  */
-                for(auto& stream : mStreams)
+                for (const auto& stream : mStreams)
                 {
-                    if(mImplementation->mPipe.get_active_profile()
+                    if (mImplementation->mPipe.get_active_profile()
                         .get_stream(static_cast<rs2_stream>(stream->mStream))
                         .is<rs2::video_stream_profile>())
                     {
                         auto intrinsics_rs2 = mImplementation->mPipe
-                                .get_active_profile()
-                                .get_stream(static_cast<rs2_stream>(stream->mStream))
-                                .as<rs2::video_stream_profile>()
-                                .get_intrinsics();
+                            .get_active_profile()
+                            .get_stream(static_cast<rs2_stream>(stream->mStream))
+                            .as<rs2::video_stream_profile>()
+                            .get_intrinsics();
                         mCameraIntrinsics.emplace(stream->mStream, RealSenseCameraIntrinsics::fromRS2Intrinsics(intrinsics_rs2));
                     }
                 }
 
-                /**
-                 * Gather device info
-                 */
-                mCameraInfo.mName = std::string(mImplementation->mPipe.get_active_profile().get_device().get_info(rs2_camera_info::RS2_CAMERA_INFO_NAME));
-                mCameraInfo.mSerial = std::string(mImplementation->mPipe.get_active_profile().get_device().get_info(rs2_camera_info::RS2_CAMERA_INFO_SERIAL_NUMBER));
-                mCameraInfo.mFirmware = std::string(mImplementation->mPipe.get_active_profile().get_device().get_info(rs2_camera_info::RS2_CAMERA_INFO_FIRMWARE_VERSION));
-                mCameraInfo.mProductID = std::string(mImplementation->mPipe.get_active_profile().get_device().get_info(rs2_camera_info::RS2_CAMERA_INFO_PRODUCT_ID));
-                mCameraInfo.mProductLine = std::string(mImplementation->mPipe.get_active_profile().get_device().get_info(rs2_camera_info::RS2_CAMERA_INFO_PRODUCT_LINE));
-                mCameraInfo.mUSBDescription = std::string(mImplementation->mPipe.get_active_profile().get_device().get_info(rs2_camera_info::RS2_CAMERA_INFO_USB_TYPE_DESCRIPTOR));
+                // Gather device info
+                mCameraInfo = { mImplementation->mPipe.get_active_profile().get_device() };
 
-                float usb_version = std::stof(mCameraInfo.mUSBDescription);
-                if(usb_version < mMinimalRequiredUSBType)
+                // Check USB version when relevant
+                if (!mCameraInfo.mUSBDescription.empty())
                 {
-                    handleError(false, utility::stringFormat("USB type invalid, must be equal or higher then %.2f, got %.2f", mMinimalRequiredUSBType, usb_version), errorState);
-                    mImplementation->mPipe.stop();
-                    return mAllowFailure;
+                    float usb_version = std::stof(mCameraInfo.mUSBDescription);
+                    if (usb_version < mMinimalRequiredUSBType)
+                    {
+                        handleError(false, utility::stringFormat("USB type invalid, must be equal or higher then %.2f, got %.2f", mMinimalRequiredUSBType, usb_version), errorState);
+                        mImplementation->mPipe.stop();
+                        return mAllowFailure;
+                    }
                 }
 
                 // store depth scale
                 mLatestDepthScale.store(mImplementation->mPipe.get_active_profile().get_device().first<rs2::depth_sensor>().get_depth_scale());
-            }catch(const rs2::error& e)
+            }
+            catch(const rs2::error& e)
             {
                 handleError(false, utility::stringFormat("RealSense error calling %s(%s)\n     %s,",
                                                          e.get_failed_function().c_str(),
