@@ -90,11 +90,16 @@ namespace nap
         RealSenseCameraInfo() = default;
         RealSenseCameraInfo(const rs2::device& device);
 
+        bool isUSBDevice() const { return mIsUSBDevice; }
+
         std::string mName;
         std::string mType;
         std::string mSerial;
         std::string mFirmware;
         std::string mProductLine;
         std::string mUSBDescription;
+
+    private:
+        bool mIsUSBDevice = false;
     };
 }

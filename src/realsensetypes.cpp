@@ -57,14 +57,14 @@ namespace nap
 
     RealSenseCameraInfo::RealSenseCameraInfo(const rs2::device& device)
     {
-        mName           = device.get_description();
+        mName           = device.get_info(RS2_CAMERA_INFO_NAME);
         mType           = device.get_type();
+        mSerial         = device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER);
         mFirmware       = device.get_info(RS2_CAMERA_INFO_FIRMWARE_VERSION);
         mProductLine    = device.get_info(RS2_CAMERA_INFO_PRODUCT_LINE);
-        mSerial         = device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER);
 
-        if (device.supports(RS2_CAMERA_INFO_USB_TYPE_DESCRIPTOR))
-            mUSBDescription = device.get_info(RS2_CAMERA_INFO_USB_TYPE_DESCRIPTOR);
+        mIsUSBDevice    = device.supports(RS2_CAMERA_INFO_USB_TYPE_DESCRIPTOR);
+        mUSBDescription = mIsUSBDevice ? device.get_info(RS2_CAMERA_INFO_USB_TYPE_DESCRIPTOR) : "N/A";
     }
 
 

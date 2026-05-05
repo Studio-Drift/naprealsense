@@ -123,9 +123,7 @@ namespace nap
                     Logger::info("    Serial number: %s", info.mSerial.c_str());
                     Logger::info("    Product line: %s", info.mProductLine.c_str());
                     Logger::info("    Firmware version: %s", info.mFirmware.c_str());
-
-                    if (!info.mUSBDescription.empty())
-                        Logger::info("    USB Description: %s", info.mUSBDescription.c_str());
+                	Logger::info("    USB Description: %s", info.mUSBDescription.c_str());
 
                     mDeviceAdded.trigger(serial);
                     mConnectedSerialNumbers.emplace_back(serial);

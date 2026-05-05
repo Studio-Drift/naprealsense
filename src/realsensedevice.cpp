@@ -21,12 +21,18 @@ RTTI_END_CLASS
 
 namespace nap
 {
+    static void logRealSenseError(const rtti::Object& obj, const rs2::error& e)
+    {
+        Logger::error(obj, utility::stringFormat("RealSense error calling %s(%s)\n     %s,",
+            e.get_failed_function().c_str(), e.get_failed_args().c_str(), e.what()));
+    }
+
+
     //////////////////////////////////////////////////////////////////////////
     // RealSenseStreamDescription
     //////////////////////////////////////////////////////////////////////////
 
     RealSenseStreamDescription::RealSenseStreamDescription(){}
-
 
     RealSenseStreamDescription::~RealSenseStreamDescription(){}
 
@@ -87,8 +93,7 @@ namespace nap
             if (!mSerial.empty())
             {
                 if (!handleError(mService.hasSerialNumber(mSerial),
-                                utility::stringFormat("Device with serial number %s is not connected", mSerial.c_str()),
-                                errorState))
+                    utility::stringFormat("Device with serial number %s is not connected", mSerial.c_str()), errorState))
                     return mAllowFailure;
             }
 
@@ -141,7 +146,7 @@ namespace nap
                 mCameraInfo = { mImplementation->mPipe.get_active_profile().get_device() };
 
                 // Check USB version when relevant
-                if (!mCameraInfo.mUSBDescription.empty())
+                if (mCameraInfo.isUSBDevice())
                 {
                     float usb_version = std::stof(mCameraInfo.mUSBDescription);
                     if (usb_version < mMinimalRequiredUSBType)
@@ -195,17 +200,12 @@ namespace nap
             try
             {
                 mImplementation->mPipe.stop();
-            }catch(const rs2::error& e)
-            {
-                nap::Logger::error(*this, utility::stringFormat("RealSense error calling %s(%s)\n     %s,",
-                                                                e.get_failed_function().c_str(),
-                                                                e.get_failed_args().c_str(),
-                                                                e.what()));
-
             }
-            catch(const std::exception& e)
-            {
-                nap::Logger::error(*this, e.what());
+            catch (const rs2::error& e) {
+                logRealSenseError(*this, e);
+            }
+            catch (const std::exception& e) {
+                Logger::error(*this, e.what());
             }
         }
 
@@ -216,19 +216,16 @@ namespace nap
 
     bool RealSenseDevice::handleError(bool successCondition, const std::string& errorMessage, utility::ErrorState& errorState)
     {
-        if(!successCondition)
+        if (!successCondition)
         {
-            if(mAllowFailure)
+            if (mAllowFailure)
             {
-                nap::Logger::error(*this, errorMessage);
-            }else
-            {
-                errorState.fail(errorMessage);
+                Logger::error(*this, errorMessage);
+                return true;
             }
-
+            errorState.fail(errorMessage);
             return false;
         }
-
         return true;
     }
 
@@ -250,26 +247,18 @@ namespace nap
             try
             {
                 mImplementation->mPipe.stop();
-            }catch(const rs2::error& e)
-            {
-                nap::Logger::error(*this, utility::stringFormat("RealSense error calling %s(%s)\n     %s,",
-                                                          e.get_failed_function().c_str(),
-                                                          e.get_failed_args().c_str(),
-                                                          e.what()));
-
             }
-            catch(const std::exception& e)
-            {
-                nap::Logger::error(*this, e.what());
+            catch(const rs2::error& e) {
+                logRealSenseError(*this, e);
+            }
+            catch(const std::exception& e) {
+                Logger::error(*this, e.what());
             }
 
             for(auto& frameset_listener : mFrameSetListeners)
-            {
                 frameset_listener->clear();
-            }
 
             mCameraIntrinsics.clear();
-
             mIsConnected = false;
         }
     }
@@ -331,17 +320,12 @@ namespace nap
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(wait));
             }
-        }catch(const rs2::error& e)
-        {
-            nap::Logger::error(*this, utility::stringFormat("RealSense error calling %s(%s)\n     %s,",
-                                                            e.get_failed_function().c_str(),
-                                                            e.get_failed_args().c_str(),
-                                                            e.what()));
-
         }
-        catch(const std::exception& e)
-        {
-            nap::Logger::error(*this, e.what());
+        catch(const rs2::error& e) {
+            logRealSenseError(*this, e);
+        }
+        catch(const std::exception& e) {
+            Logger::error(*this, e.what());
         }
 
         mRun.store(false);
