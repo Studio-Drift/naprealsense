@@ -9,10 +9,10 @@
 #include <rs.hpp>
 
 RTTI_BEGIN_CLASS(nap::RealSenseRenderPointCloudComponent)
-        RTTI_PROPERTY("Device", &nap::RealSenseRenderPointCloudComponent::mDevice, nap::rtti::EPropertyMetaData::Required)
-        RTTI_PROPERTY("PointSize", &nap::RealSenseRenderPointCloudComponent::mPointSize, nap::rtti::EPropertyMetaData::Default)
-        RTTI_PROPERTY("MaxDistance", &nap::RealSenseRenderPointCloudComponent::mMaxDistance, nap::rtti::EPropertyMetaData::Default)
-        RTTI_PROPERTY("IntrinsicsType", &nap::RealSenseRenderPointCloudComponent::mCameraIntrinsicsStreamType, nap::rtti::EPropertyMetaData::Default)
+    RTTI_PROPERTY("Device", &nap::RealSenseRenderPointCloudComponent::mDevice, nap::rtti::EPropertyMetaData::Required)
+    RTTI_PROPERTY("PointSize", &nap::RealSenseRenderPointCloudComponent::mPointSize, nap::rtti::EPropertyMetaData::Default)
+    RTTI_PROPERTY("MaxDistance", &nap::RealSenseRenderPointCloudComponent::mMaxDistance, nap::rtti::EPropertyMetaData::Default)
+    RTTI_PROPERTY("IntrinsicsType", &nap::RealSenseRenderPointCloudComponent::mCameraIntrinsicsStreamType, nap::rtti::EPropertyMetaData::Default)
 RTTI_END_CLASS
 
 RTTI_BEGIN_CLASS_NO_DEFAULT_CONSTRUCTOR(nap::RealSenseRenderPointCloudComponentInstance)
@@ -57,13 +57,13 @@ namespace nap
 
     bool RealSenseRenderPointCloudComponentInstance::init(utility::ErrorState& errorState)
     {
-        if(!RenderableMeshComponentInstance::init(errorState))
+        if (!RenderableMeshComponentInstance::init(errorState))
             return false;
 
-        if(!errorState.check(getEntityInstance()->hasComponent<RealSenseRenderPointCloudComponentInstance>(), "No RealSenseRenderFramesComponent found"))
+        if (!errorState.check(getEntityInstance()->hasComponent<TransformComponentInstance>(), "No TransformComponent found"))
             return false;
 
-        if(!errorState.check(getEntityInstance()->hasComponent<TransformComponentInstance>(), "No TransformComponent found"))
+        if (!errorState.check(getEntityInstance()->hasComponent<RealSenseRenderFramesComponentInstance>(), "No RealSenseRenderFramesComponent found"))
             return false;
 
         // copy resources
@@ -100,21 +100,20 @@ namespace nap
         if(!isVisible())
             return;
 
-        auto& frame_renderer = getEntityInstance()->getComponent<RealSenseRenderFramesComponentInstance>();
-
-        mReady = frame_renderer.isRenderTextureInitialized(ERealSenseStreamType::REALSENSE_STREAMTYPE_DEPTH) &&
-                frame_renderer.isRenderTextureInitialized(ERealSenseStreamType::REALSENSE_STREAMTYPE_COLOR) &&
-                mDevice->getIsConnected();
+        auto& frames_renderer = getEntityInstance()->getComponent<RealSenseRenderFramesComponentInstance>();
+        mReady =    frames_renderer.isRenderTextureInitialized(ERealSenseStreamType::REALSENSE_STREAMTYPE_DEPTH) &&
+                    frames_renderer.isRenderTextureInitialized(ERealSenseStreamType::REALSENSE_STREAMTYPE_COLOR) &&
+                    mDevice->getIsConnected();
         if(!mReady)
             return;
 
 
         auto& material_instance = getMaterialInstance();
         auto* depth_sampler = material_instance.getOrCreateSampler<Sampler2DInstance>("depth_texture");
-        depth_sampler->setTexture(frame_renderer.getRenderTexture(ERealSenseStreamType::REALSENSE_STREAMTYPE_DEPTH));
+        depth_sampler->setTexture(frames_renderer.getRenderTexture(ERealSenseStreamType::REALSENSE_STREAMTYPE_DEPTH));
 
         auto* color_sampler = material_instance.getOrCreateSampler<Sampler2DInstance>("color_texture");
-        color_sampler->setTexture(frame_renderer.getRenderTexture(ERealSenseStreamType::REALSENSE_STREAMTYPE_COLOR));
+        color_sampler->setTexture(frames_renderer.getRenderTexture(ERealSenseStreamType::REALSENSE_STREAMTYPE_COLOR));
 
         const auto& camera_intrinsics = mDevice->getIntrincicsMap();
         const auto& intrinsics = camera_intrinsics.find(mCameraIntrinsicsStreamType)->second;
