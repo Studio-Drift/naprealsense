@@ -25,7 +25,7 @@ namespace nap
 {
     namespace shader
     {
-        inline constexpr const char* pointcloud = "pointcloud";
+        inline constexpr const char* pointcloud = "point";
     }
 
 

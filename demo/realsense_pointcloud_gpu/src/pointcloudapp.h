@@ -79,7 +79,6 @@ namespace nap
 		ObjectPtr<RenderWindow>		mRenderWindow;					///< Pointer to the render window	
 		ObjectPtr<Scene>			mScene = nullptr;				///< Pointer to the main scene
 		ObjectPtr<EntityInstance>	mCameraEntity = nullptr;		///< Pointer to the entity that holds the perspective camera
-        ObjectPtr<EntityInstance>	mRealSenseEntity = nullptr;		///< Pointer to the realsense entity
         ObjectPtr<RealSenseDevice>  mRealSenseDevice = nullptr;		///< Pointer to the realsense device
         ObjectPtr<RenderTexture2D>  mColorTexture = nullptr;        ///< Pointer to the color render texture
         ObjectPtr<RenderTexture2D>  mDepthTexture = nullptr;        ///< Pointer to the depth render texture

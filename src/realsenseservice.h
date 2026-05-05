@@ -85,12 +85,23 @@ namespace nap
          */
         const RealSenseCameraInfo& getCameraInfo(const std::string& serial);
 
+        /**
+         * @return the rs2 context handle
+         */
+		const void* getContext() const;
+
         // Signal is dispatched on main thread when camera is removed
         Signal<const std::string&> mDeviceRemoved;
 
         // Signal is dispatched on main thread when camera is added
         Signal<const std::string&> mDeviceAdded;
 	private:
+        /**
+         * @param errorState
+         * @return
+         */
+        bool scan(utility::ErrorState& errorState);
+
         /**
          * Registers a RealSenseDevice
          * @param device pointer to RealSenseDevice

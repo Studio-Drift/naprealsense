@@ -63,35 +63,6 @@
         },
         {
             "Type": "nap::Entity",
-            "mID": "RealSenseEntity",
-            "Components": [
-                {
-                    "Type": "nap::RealSenseRenderFrameComponent",
-                    "mID": "RenderColorComponent",
-                    "RealSenseDevice": "RealSenseDevice",
-                    "Format": "RGBA8",
-                    "StreamType": "Color",
-                    "Filters": []
-                },
-                {
-                    "Type": "nap::RealSenseRenderFrameComponent",
-                    "mID": "RenderDepthComponent",
-                    "RealSenseDevice": "RealSenseDevice",
-                    "Format": "R16",
-                    "StreamType": "Depth",
-                    "Filters": [
-                        {
-                            "Type": "nap::RealSenseDecFilter",
-                            "mID": "RealSenseDecFilter_195924be",
-                            "Magnitude": 3.0
-                        }
-                    ]
-                }
-            ],
-            "Children": []
-        },
-        {
-            "Type": "nap::Entity",
             "mID": "RenderEntity",
             "Components": [
                 {
@@ -117,9 +88,26 @@
                     }
                 },
                 {
+                    "Type": "nap::RealSenseRenderFramesComponent",
+                    "mID": "RealSenseRenderFramesComponent_b1cd93",
+                    "RenderDescriptions": [
+                        {
+                            "StreamType": "Color",
+                            "Format": "RGBA8"
+                        },
+                        {
+                            "StreamType": "Depth",
+                            "Format": "R16"
+                        }
+                    ],
+                    "Enabled": true
+                },
+                {
                     "Type": "nap::RealSenseRenderPointCloudComponent",
                     "mID": "RenderPointCloud",
                     "Visible": true,
+                    "Tags": [],
+                    "Layer": "",
                     "Mesh": "PointCloudMesh",
                     "MaterialInstance": {
                         "Uniforms": [],
@@ -133,8 +121,13 @@
                                 "MipMapMode": "Linear",
                                 "AddressModeVertical": "ClampToEdge",
                                 "AddressModeHorizontal": "ClampToEdge",
+                                "MinLodLevel": 0,
                                 "MaxLodLevel": 1000,
+                                "LodBias": 0.0,
                                 "AnisotropicSamples": "Default",
+                                "BorderColor": "IntOpaqueBlack",
+                                "CompareMode": "LessOrEqual",
+                                "EnableCompare": false,
                                 "Texture": "ColorTexture"
                             },
                             {
@@ -146,12 +139,18 @@
                                 "MipMapMode": "Linear",
                                 "AddressModeVertical": "ClampToEdge",
                                 "AddressModeHorizontal": "ClampToEdge",
+                                "MinLodLevel": 0,
                                 "MaxLodLevel": 1000,
+                                "LodBias": 0.0,
                                 "AnisotropicSamples": "Default",
+                                "BorderColor": "IntOpaqueBlack",
+                                "CompareMode": "LessOrEqual",
+                                "EnableCompare": false,
                                 "Texture": "DepthTexture"
                             }
                         ],
                         "Buffers": [],
+                        "Constants": [],
                         "Material": "PointCloudMaterial",
                         "BlendMode": "NotSet",
                         "DepthMode": "NotSet"
@@ -169,8 +168,20 @@
                     },
                     "Device": "RealSenseDevice",
                     "PointSize": 4.0,
-                    "DepthRenderer": "../RealSenseEntity/RenderDepthComponent",
-                    "ColorRenderer": "../RealSenseEntity/RenderColorComponent"
+                    "MaxDistance": 5.0,
+                    "IntrinsicsType": "Depth"
+                },
+                {
+                    "Type": "nap::RealSenseFilterStackComponent",
+                    "mID": "RealSenseFilterStackComponent_95943e",
+                    "Filters": [
+                        {
+                            "Type": "nap::RealSenseFrameSetAlignFilter",
+                            "mID": "RealSenseFrameSetAlignFilter_d5af08",
+                            "Align To": "Depth"
+                        }
+                    ],
+                    "Device": "RealSenseDevice"
                 }
             ],
             "Children": []
@@ -181,6 +192,7 @@
             "Borderless": false,
             "Resizable": true,
             "Visible": true,
+            "AlwaysOnTop": false,
             "SampleShading": true,
             "Title": "Point Cloud GPU",
             "Width": 1280,
@@ -196,6 +208,7 @@
             },
             "Samples": "Four",
             "AdditionalSwapImages": 1,
+            "Clear": true,
             "RestoreSize": true,
             "RestorePosition": true
         },
@@ -290,6 +303,7 @@
                     ],
                     "Samplers": [],
                     "Buffers": [],
+                    "Constants": [],
                     "Shader": "PointCloudShader",
                     "VertexAttributeBindings": [
                         {
@@ -313,7 +327,9 @@
                     "mID": "PointCloudMesh",
                     "Rows": 300,
                     "Colums": 300,
-                    "Size": 300
+                    "Size": 300.0,
+                    "Usage": "Static",
+                    "CullMode": "None"
                 },
                 {
                     "Type": "nap::PointCloudShader",
@@ -345,19 +361,12 @@
                             "Stream": "Depth"
                         }
                     ],
-                    "Filters": [
-                        {
-                            "Type": "nap::RealSenseFrameSetAlignFilter",
-                            "mID": "RealSenseFrameSetAlignFilter_16cc8a5f",
-                            "Align To": "Depth"
-                        }
-                    ],
-                    "AllowFailure": false
+                    "AllowFailure": false,
+                    "MinUSBVersion": 3.0
                 },
                 {
                     "Type": "nap::RenderTexture2D",
                     "mID": "DepthTexture",
-                    "Usage": "Static",
                     "Width": 1,
                     "Height": 1,
                     "Format": "R16",
@@ -369,12 +378,12 @@
                             0.0,
                             0.0
                         ]
-                    }
+                    },
+                    "Usage": "DynamicWrite"
                 },
                 {
                     "Type": "nap::RenderTexture2D",
                     "mID": "ColorTexture",
-                    "Usage": "Static",
                     "Width": 1,
                     "Height": 1,
                     "Format": "RGBA8",
@@ -386,7 +395,8 @@
                             0.0,
                             0.0
                         ]
-                    }
+                    },
+                    "Usage": "DynamicWrite"
                 }
             ],
             "Children": []
@@ -401,10 +411,6 @@
                 },
                 {
                     "Entity": "CameraEntity",
-                    "InstanceProperties": []
-                },
-                {
-                    "Entity": "RealSenseEntity",
                     "InstanceProperties": []
                 }
             ]
