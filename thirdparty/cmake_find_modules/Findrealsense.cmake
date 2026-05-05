@@ -1,22 +1,12 @@
-if(WIN32)
-    find_path(REALSENSE_DIR
-              NAMES source/rs.h
-              HINTS ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/realsense
-              )
-    set(REALSENSE_INCLUDE_DIR ${REALSENSE_DIR}/source)
-    set(REALSENSE_LIBS_DIR ${REALSENSE_DIR}/msvc/x86_64/lib)
-    set(REALSENSE_LIBS ${REALSENSE_LIBS_DIR}/realsense2.lib)
-    set(REALSENSE_LIBS_RELEASE_DLL ${REALSENSE_LIBS_DIR}/realsense2.dll)
-elseif(UNIX)
-    find_path(REALSENSE_DIR
-              NAMES source/rs.h
-              HINTS ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/realsense
-              )
-    set(REALSENSE_INCLUDE_DIR ${REALSENSE_DIR}/source)
-    set(REALSENSE_LIBS_DIR ${REALSENSE_DIR}/linux/${ARCH})
-    set(REALSENSE_LIBS ${REALSENSE_LIBS_DIR}/lib/librealsense2.so.2.51.1)
-    set(REALSENSE_LIBS_RELEASE_DLL ${REALSENSE_LIBS_DIR})
-endif()
+find_path(REALSENSE_DIR
+          NAMES source/rs.h
+          HINTS ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/realsense
+          )
+set(REALSENSE_INCLUDE_DIR ${REALSENSE_DIR}/source)
+set(REALSENSE_LIBS_DIR ${REALSENSE_DIR}/linux/${ARCH})
+set(REALSENSE_LIBS ${REALSENSE_LIBS_DIR}/lib/librealsense2.so.2.57.7)
+set(REALSENSE_LIBS_RELEASE_DLL ${REALSENSE_LIBS_DIR})
+
 
 add_library(realsenselib SHARED IMPORTED)
 set_target_properties(realsenselib PROPERTIES
@@ -24,13 +14,6 @@ set_target_properties(realsenselib PROPERTIES
                       IMPORTED_LOCATION_RELEASE ${REALSENSE_LIBS_RELEASE_DLL}
                       IMPORTED_LOCATION_DEBUG ${REALSENSE_LIBS_RELEASE_DLL}
                       )
-
-if(WIN32)
-    set_target_properties(realsenselib PROPERTIES
-                          IMPORTED_IMPLIB_RELEASE ${REALSENSE_LIBS}
-                          IMPORTED_IMPLIB_DEBUG ${REALSENSE_LIBS}
-                          )
-endif()
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(realsense REQUIRED_VARS REALSENSE_DIR REALSENSE_LIBS_DIR REALSENSE_INCLUDE_DIR)

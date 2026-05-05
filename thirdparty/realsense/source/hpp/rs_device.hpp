@@ -1,12 +1,13 @@
 // License: Apache 2.0. See LICENSE file in root directory.
-// Copyright(c) 2017 Intel Corporation. All Rights Reserved.
+// Copyright(c) 2017-2024 RealSense, Inc. All Rights Reserved.
 
 #ifndef LIBREALSENSE_RS2_DEVICE_HPP
 #define LIBREALSENSE_RS2_DEVICE_HPP
 
 #include "rs_types.hpp"
 #include "rs_sensor.hpp"
-#include <array>
+#include <vector>
+#include <string>
 
 namespace rs2
 {
@@ -46,6 +47,41 @@ namespace rs2
             }
 
             return results;
+        }
+
+        /**
+         * \return   the type of device: USB/GMSL/DDS, etc.
+         */
+        std::string get_type() const
+        {
+            if( supports( RS2_CAMERA_INFO_CONNECTION_TYPE ) )
+                return get_info(RS2_CAMERA_INFO_CONNECTION_TYPE);
+            return {};
+        }
+
+        /**
+         * \return   the one-line description: "[<type>] <name> s/n <#>"
+         */
+        std::string get_description() const
+        {
+            std::ostringstream os;
+            auto type = get_type();
+            if( supports( RS2_CAMERA_INFO_NAME ) )
+            {
+                if( ! type.empty() )
+                    os << "[" << type << "] ";
+                os << get_info( RS2_CAMERA_INFO_NAME );
+            }
+            else
+            {
+                if( ! type.empty() )
+                    os << type << " device";
+                else
+                    os << "unknown device";
+            }
+            if( supports( RS2_CAMERA_INFO_SERIAL_NUMBER ) )
+                os << " s/n " << get_info( RS2_CAMERA_INFO_SERIAL_NUMBER );
+            return os.str();
         }
 
         template<class T>
@@ -90,9 +126,19 @@ namespace rs2
         void hardware_reset()
         {
             rs2_error* e = nullptr;
-
             rs2_hardware_reset(_dev.get(), &e);
             error::handle(e);
+        }
+
+        /**
+        * Find if a camera is in recovery mode
+        */
+        bool is_in_recovery_mode()
+        {
+            rs2_error* e = nullptr;
+            auto result = rs2_is_in_recovery_mode(_dev.get(), &e);
+            error::handle(e);
+            return result;
         }
 
         device& operator=(const std::shared_ptr<rs2_device> dev)
@@ -109,6 +155,8 @@ namespace rs2
         }
         device() : _dev(nullptr) {}
 
+        // Note: this checks the validity of rs2::device (i.e., if it's connected to a realsense device), and does
+        // NOT reflect the current condition (connected/disconnected). Use is_connected() for that.
         operator bool() const
         {
             return _dev != nullptr;
@@ -116,6 +164,21 @@ namespace rs2
         const std::shared_ptr<rs2_device>& get() const
         {
             return _dev;
+        }
+        bool operator<( device const & other ) const
+        {
+            // All RealSense cameras have an update-ID but not always a serial number
+            return std::strcmp( get_info( RS2_CAMERA_INFO_FIRMWARE_UPDATE_ID ),
+                          other.get_info( RS2_CAMERA_INFO_FIRMWARE_UPDATE_ID ) )
+                 < 0;
+        }
+
+        bool is_connected() const
+        {
+            rs2_error * e = nullptr;
+            bool connected = rs2_device_is_connected( _dev.get(), &e );
+            error::handle( e );
+            return connected;
         }
 
         template<class T>
@@ -343,13 +406,15 @@ namespace rs2
                                               "speed": 3,
                                               "scan parameter": 0,
                                               "adjust both sides": 0,
-                                              "white wall mode": 0
+                                              "white wall mode": 0,
+                                              "host assistance": 0
                                             }
                                             calib_type - calibraton type: 0 = regular, 1 = focal length, 2 = both regular and focal length in order
                                             speed - for regular calibration. value can be one of: Very fast = 0, Fast = 1, Medium = 2, Slow = 3, White wall = 4, default is Slow for type 0 and Fast for type 2
                                             scan_parameter - for regular calibration. value can be one of: Py scan (default) = 0, Rx scan = 1
                                             adjust_both_sides - for focal length calibration. value can be one of: 0 = adjust right only, 1 = adjust both sides
                                             white_wall_mode - white wall mode: 0 for normal mode and 1 for white wall mode
+                                            host_assistance: 0 for no assistance, 1 for starting with assistance, 2 for first part feeding host data to firmware, 3 for second part of feeding host data to firmware (calib_type 2 only)
                                             if json is nullptr it will be ignored and calibration will use the default parameters
          * \param[out] health           The absolute value of regular calibration Health-Check captures how far camera calibration is from the optimal one
                                             [0, 0.25) - Good
@@ -397,13 +462,15 @@ namespace rs2
                                               "speed": 3,
                                               "scan parameter": 0,
                                               "adjust both sides": 0,
-                                              "white wall mode": 0
+                                              "white wall mode": 0,
+                                              "host assistance": 0
                                             }
                                             focal_length - calibraton type: 0 = regular, 1 = focal length, 2 = both regular and focal length in order
                                             speed - for regular calibration. value can be one of: Very fast = 0, Fast = 1, Medium = 2, Slow = 3, White wall = 4, default is Slow for type 0 and Fast for type 2
                                             scan_parameter - for regular calibration. value can be one of: Py scan (default) = 0, Rx scan = 1
                                             adjust_both_sides - for focal length calibration. value can be one of: 0 = adjust right only, 1 = adjust both sides
                                             white_wall_mode - white wall mode: 0 for normal mode and 1 for white wall mode
+                                            host_assistance: 0 for no assistance, 1 for starting with assistance, 2 for first part feeding host data to firmware, 3 for second part of feeding host data to firmware (calib_type 2 only)
                                             if json is nullptr it will be ignored and calibration will use the default parameters
          * \param[out] health           The absolute value of regular calibration Health-Check captures how far camera calibration is from the optimal one
                                             [0, 0.25) - Good
@@ -426,14 +493,15 @@ namespace rs2
             std::vector<uint8_t> results;
 
             rs2_error* e = nullptr;
-            std::shared_ptr<const rs2_raw_data_buffer> list(
-                rs2_run_on_chip_calibration_cpp(_dev.get(), json_content.data(), static_cast< int >( json_content.size() ), health, nullptr, timeout_ms, &e),
-                rs2_delete_raw_data);
+            const rs2_raw_data_buffer* buf = rs2_run_on_chip_calibration_cpp(_dev.get(), json_content.data(), static_cast< int >( json_content.size() ), health, nullptr, timeout_ms, &e);
             error::handle(e);
+            std::shared_ptr<const rs2_raw_data_buffer> list(buf, rs2_delete_raw_data);
+
             auto size = rs2_get_raw_data_size(list.get(), &e);
             error::handle(e);
 
             auto start = rs2_get_raw_data(list.get(), &e);
+            error::handle(e);
 
             results.insert(results.begin(), start, start + size);
 
@@ -450,29 +518,36 @@ namespace rs2
                                               "step count": 20,
                                               "accuracy": 2,
                                               "scan parameter": 0,
-                                              "data sampling": 0
+                                              "data sampling": 0,
+                                              "host assistance": 0,
+                                              "depth" : 0
                                             }
                                             average step count - number of frames to average, must be between 1 - 30, default = 20
                                             step count - max iteration steps, must be between 5 - 30, default = 10
                                             accuracy - Subpixel accuracy level, value can be one of: Very high = 0 (0.025%), High = 1 (0.05%), Medium = 2 (0.1%), Low = 3 (0.2%), Default = Very high (0.025%), default is Medium
                                             scan_parameter - value can be one of: Py scan (default) = 0, Rx scan = 1
                                             data_sampling - value can be one of:polling data sampling = 0, interrupt data sampling = 1
+                                            host_assistance: 0 for no assistance, 1 for starting with assistance, 2 for feeding host data to firmware
+                                            depth: 0 for not relating to depth, > 0 for feeding depth from host to firmware, -1 for ending to feed depth from host to firmware
                                             if json is nullptr it will be ignored and calibration will use the default parameters
         * \param[in]  content_size       Json string size if its 0 the json will be ignored and calibration will use the default parameters
+         * \param[out] health           The absolute value of regular calibration Health-Check captures how far camera calibration is from the optimal one
+                                            [0, 0.25) - Good
+                                            [0.25, 0.75) - Can be Improved
+                                            [0.75, ) - Requires Calibration
         * \param[in]  callback           Optional callback to get progress notifications
         * \param[in] timeout_ms          Timeout in ms
         * \return                        New calibration table
         */
         template<class T>
-        calibration_table run_tare_calibration(float ground_truth_mm, std::string json_content, T callback, int timeout_ms = 5000) const
+        calibration_table run_tare_calibration(float ground_truth_mm, std::string json_content, float* health, T callback, int timeout_ms = 5000) const
         {
             std::vector<uint8_t> results;
 
             rs2_error* e = nullptr;
-            std::shared_ptr<const rs2_raw_data_buffer> list(
-                rs2_run_tare_calibration_cpp(_dev.get(), ground_truth_mm, json_content.data(), int(json_content.size()), new update_progress_callback<T>(std::move(callback)), timeout_ms, &e),
-                rs2_delete_raw_data);
+            const rs2_raw_data_buffer* buf = rs2_run_tare_calibration_cpp(_dev.get(), ground_truth_mm, json_content.data(), int(json_content.size()), health, new update_progress_callback<T>(std::move(callback)), timeout_ms, &e);
             error::handle(e);
+            std::shared_ptr<const rs2_raw_data_buffer> list(buf, rs2_delete_raw_data);
 
             auto size = rs2_get_raw_data_size(list.get(), &e);
             error::handle(e);
@@ -494,27 +569,88 @@ namespace rs2
                                                "step count": 20,
                                                "accuracy": 2,
                                                "scan parameter": 0,
-                                               "data sampling": 0
+                                               "data sampling": 0,
+                                               "host assistance": 0,
+                                               "depth" : 0
                                              }
                                              average step count - number of frames to average, must be between 1 - 30, default = 20
                                              step count - max iteration steps, must be between 5 - 30, default = 10
                                              accuracy - Subpixel accuracy level, value can be one of: Very high = 0 (0.025%), High = 1 (0.05%), Medium = 2 (0.1%), Low = 3 (0.2%), Default = Very high (0.025%), default is Medium
                                              scan_parameter - value can be one of: Py scan (default) = 0, Rx scan = 1
                                              data_sampling - value can be one of:polling data sampling = 0, interrupt data sampling = 1
+                                             host_assistance: 0 for no assistance, 1 for starting with assistance, 2 for feeding host data to firmware
+                                             depth: 0 for not relating to depth, > 0 for feeding depth from host to firmware, -1 for ending to feed depth from host to firmware
                                              if json is nullptr it will be ignored and calibration will use the default parameters
          * \param[in]  content_size       Json string size if its 0 the json will be ignored and calibration will use the default parameters
+         * \param[out] health           The absolute value of regular calibration Health-Check captures how far camera calibration is from the optimal one
+                                            [0, 0.25) - Good
+                                            [0.25, 0.75) - Can be Improved
+                                            [0.75, ) - Requires Calibration
          * \param[in] timeout_ms          Timeout in ms
          * \return                        New calibration table
          */
-        calibration_table run_tare_calibration(float ground_truth_mm, std::string json_content, int timeout_ms = 5000) const
+        calibration_table run_tare_calibration(float ground_truth_mm, std::string json_content, float * health, int timeout_ms = 5000) const
         {
             std::vector<uint8_t> results;
 
             rs2_error* e = nullptr;
-            std::shared_ptr<const rs2_raw_data_buffer> list(
-                rs2_run_tare_calibration_cpp(_dev.get(), ground_truth_mm, json_content.data(), static_cast< int >( json_content.size() ), nullptr, timeout_ms, &e),
-                rs2_delete_raw_data);
+            const rs2_raw_data_buffer* buf = rs2_run_tare_calibration_cpp(_dev.get(), ground_truth_mm, json_content.data(), static_cast< int >( json_content.size() ), health, nullptr, timeout_ms, &e);
             error::handle(e);
+            std::shared_ptr<const rs2_raw_data_buffer> list(buf, rs2_delete_raw_data);
+
+            auto size = rs2_get_raw_data_size(list.get(), &e);
+            error::handle(e);
+
+            auto start = rs2_get_raw_data(list.get(), &e);
+
+            results.insert(results.begin(), start, start + size);
+
+            return results;
+        }
+
+        /**
+        * When doing a host-assited calibration (Tare or on-chip) add frame to the calibration process
+         * \param[in] f     The next depth frame.
+         * \param[in] callback            Optional callback to get progress notifications
+         * \param[in] timeout_ms          Timeout in ms
+         * \param[out] health             The health check numbers before and after calibration
+        * \return a New calibration table when process is done. An empty table otherwise - need more frames.
+        **/
+        template<class T>
+        calibration_table process_calibration_frame(rs2::frame f, float* const health, T callback, int timeout_ms = 5000) const
+        {
+            std::vector<uint8_t> results;
+
+            rs2_error* e = nullptr;
+            const rs2_raw_data_buffer* buf = rs2_process_calibration_frame(_dev.get(), f.get(), health, new update_progress_callback<T>(std::move(callback)), timeout_ms, &e);
+            error::handle(e);
+            std::shared_ptr<const rs2_raw_data_buffer> list(buf, rs2_delete_raw_data);
+
+            auto size = rs2_get_raw_data_size(list.get(), &e);
+            error::handle(e);
+
+            auto start = rs2_get_raw_data(list.get(), &e);
+
+            results.insert(results.begin(), start, start + size);
+
+            return results;
+        }
+
+        /**
+        * When doing a host-assited calibration (Tare or on-chip) add frame to the calibration process
+         * \param[in] f     The next depth frame.
+         * \param[in] timeout_ms          Timeout in ms
+         * \param[out] health             The health check numbers before and after calibration
+        * \return a New calibration table when process is done. An empty table otherwise - need more frames.
+        **/
+        calibration_table process_calibration_frame(rs2::frame f, float* const health, int timeout_ms = 5000) const
+        {
+            std::vector<uint8_t> results;
+
+            rs2_error* e = nullptr;
+            const rs2_raw_data_buffer* buf = rs2_process_calibration_frame(_dev.get(), f.get(), health, nullptr, timeout_ms, &e);
+            error::handle(e);
+            std::shared_ptr<const rs2_raw_data_buffer> list(buf, rs2_delete_raw_data);
 
             auto size = rs2_get_raw_data_size(list.get(), &e);
             error::handle(e);
@@ -733,6 +869,34 @@ namespace rs2
 
             return result;
         }
+
+        std::string get_calibration_config() const
+        {
+            std::vector<uint8_t> result;
+
+            rs2_error* e = nullptr;
+            auto buffer = rs2_get_calibration_config(_dev.get(), &e);
+
+            std::shared_ptr<const rs2_raw_data_buffer> list(buffer, rs2_delete_raw_data);
+            error::handle(e);
+
+            auto size = rs2_get_raw_data_size(list.get(), &e);
+            error::handle(e);
+
+            auto start = rs2_get_raw_data(list.get(), &e);
+            error::handle(e);
+
+            result.insert(result.begin(), start, start + size);
+
+            return std::string(result.begin(), result.end());
+        }
+
+        void set_calibration_config(const std::string& calibration_config_json_str) const
+        {
+            rs2_error* e = nullptr;
+            rs2_set_calibration_config(_dev.get(), calibration_config_json_str.c_str(), &e);
+            error::handle(e);
+        }
     };
 
     /*
@@ -748,7 +912,11 @@ namespace rs2
 
         void on_calibration_change( rs2_calibration_status status ) noexcept override
         {
-            _callback( status );
+            try
+            {
+                _callback( status );
+            }
+            catch( ... ) { }
         }
         void release() override { delete this; }
     };
@@ -842,8 +1010,8 @@ namespace rs2
             rs2_error* e = nullptr;
             auto buffer = rs2_build_debug_protocol_command(_dev.get(), opcode, param1, param2, param3, param4,
                 (void*)data.data(), (uint32_t)data.size(), &e);
-            std::shared_ptr<const rs2_raw_data_buffer> list(buffer, rs2_delete_raw_data);
             error::handle(e);
+            std::shared_ptr< const rs2_raw_data_buffer > list( buffer, rs2_delete_raw_data );
 
             auto size = rs2_get_raw_data_size(list.get(), &e);
             error::handle(e);
@@ -876,13 +1044,21 @@ namespace rs2
 
             return results;
         }
+
+        std::string get_opcode_string(int opcode)
+        {
+            rs2_error* e = nullptr;
+            char buffer[1024];
+            rs2_hw_monitor_get_opcode_string(opcode, buffer, sizeof(buffer), _dev.get(), &e);
+            return std::string(buffer);
+        }
     };
 
     class device_list
     {
     public:
         explicit device_list(std::shared_ptr<rs2_device_list> list)
-            : _list(move(list)) {}
+            : _list(std::move(list)) {}
 
         device_list()
             : _list(nullptr) {}
@@ -904,7 +1080,7 @@ namespace rs2
 
         device_list& operator=(std::shared_ptr<rs2_device_list> list)
         {
-            _list = move(list);
+            _list = std::move(list);
             return *this;
         }
 
@@ -984,140 +1160,6 @@ namespace rs2
 
     private:
         std::shared_ptr<rs2_device_list> _list;
-    };
-
-    /**
-     * The tm2 class is an interface for T2XX devices, such as T265.
-     *
-     * For T265, it provides RS2_STREAM_FISHEYE (2), RS2_STREAM_GYRO, RS2_STREAM_ACCEL, and RS2_STREAM_POSE streams,
-     * and contains the following sensors:
-     *
-     * - pose_sensor: map and relocalization functions.
-     * - wheel_odometer: input for odometry data.
-     */
-    class tm2 : public calibrated_device // TODO: add to wrappers [Python done]
-    {
-    public:
-        tm2(device d)
-            : calibrated_device(d)
-        {
-            rs2_error* e = nullptr;
-            if (rs2_is_device_extendable_to(_dev.get(), RS2_EXTENSION_TM2, &e) == 0 && !e)
-            {
-                _dev.reset();
-            }
-            error::handle(e);
-        }
-
-        /**
-        * Enter the given device into loopback operation mode that uses the given file as input for raw data
-        * \param[in]  from_file  Path to bag file with raw data for loopback
-        */
-        void enable_loopback(const std::string& from_file)
-        {
-            rs2_error* e = nullptr;
-            rs2_loopback_enable(_dev.get(), from_file.c_str(), &e);
-            error::handle(e);
-        }
-
-        /**
-        * Restores the given device into normal operation mode
-        */
-        void disable_loopback()
-        {
-            rs2_error* e = nullptr;
-            rs2_loopback_disable(_dev.get(), &e);
-            error::handle(e);
-        }
-
-        /**
-        * Checks if the device is in loopback mode or not
-        * \return true if the device is in loopback operation mode
-        */
-        bool is_loopback_enabled() const
-        {
-            rs2_error* e = nullptr;
-            int is_enabled = rs2_loopback_is_enabled(_dev.get(), &e);
-            error::handle(e);
-            return is_enabled != 0;
-        }
-
-        /**
-        * Connects to a given tm2 controller
-        * \param[in]  mac_addr   The MAC address of the desired controller
-        */
-        void connect_controller(const std::array<uint8_t, 6>& mac_addr)
-        {
-            rs2_error* e = nullptr;
-            rs2_connect_tm2_controller(_dev.get(), mac_addr.data(), &e);
-            error::handle(e);
-        }
-
-        /**
-        * Disconnects a given tm2 controller
-        * \param[in]  id         The ID of the desired controller
-        */
-        void disconnect_controller(int id)
-        {
-            rs2_error* e = nullptr;
-            rs2_disconnect_tm2_controller(_dev.get(), id, &e);
-            error::handle(e);
-        }
-
-        /**
-        * Set tm2 camera intrinsics
-        * \param[in] fisheye_senor_id The ID of the fisheye sensor
-        * \param[in] intrinsics       value to be written to the device
-        */
-        void set_intrinsics(int fisheye_sensor_id, const rs2_intrinsics& intrinsics)
-        {
-            rs2_error* e = nullptr;
-            auto fisheye_sensor = get_sensor_profile(RS2_STREAM_FISHEYE, fisheye_sensor_id);
-            rs2_set_intrinsics(fisheye_sensor.first.get().get(), fisheye_sensor.second.get(), &intrinsics, &e);
-            error::handle(e);
-        }
-
-        /**
-        * Set tm2 camera extrinsics
-        * \param[in] from_stream     only support RS2_STREAM_FISHEYE
-        * \param[in] from_id         only support left fisheye = 1
-        * \param[in] to_stream       only support RS2_STREAM_FISHEYE
-        * \param[in] to_id           only support right fisheye = 2
-        * \param[in] extrinsics      extrinsics value to be written to the device
-        */
-        void set_extrinsics(rs2_stream from_stream, int from_id, rs2_stream to_stream, int to_id, rs2_extrinsics& extrinsics)
-        {
-            rs2_error* e = nullptr;
-            auto from_sensor = get_sensor_profile(from_stream, from_id);
-            auto to_sensor   = get_sensor_profile(to_stream, to_id);
-            rs2_set_extrinsics(from_sensor.first.get().get(), from_sensor.second.get(), to_sensor.first.get().get(), to_sensor.second.get(), &extrinsics, &e);
-            error::handle(e);
-        }
-
-        /** 
-        * Set tm2 motion device intrinsics
-        * \param[in] stream_type       stream type of the motion device
-        * \param[in] motion_intriniscs intrinsics value to be written to the device
-        */
-        void set_motion_device_intrinsics(rs2_stream stream_type, const rs2_motion_device_intrinsic& motion_intriniscs)
-        {
-            rs2_error* e = nullptr;
-            auto motion_sensor = get_sensor_profile(stream_type, 0);
-            rs2_set_motion_device_intrinsics(motion_sensor.first.get().get(), motion_sensor.second.get(), &motion_intriniscs, &e);
-            error::handle(e);
-        }
-
-    private:
-
-        std::pair<sensor, stream_profile> get_sensor_profile(rs2_stream stream_type, int stream_index) {
-            for (auto s : query_sensors()) {
-                for (auto p : s.get_stream_profiles()) {
-                    if (p.stream_type() == stream_type && p.stream_index() == stream_index)
-                        return std::pair<sensor, stream_profile>(s, p);
-                }
-            }
-            return std::pair<sensor, stream_profile>();
-         }
     };
 }
 #endif // LIBREALSENSE_RS2_DEVICE_HPP

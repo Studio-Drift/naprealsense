@@ -10,6 +10,7 @@
 #include <renderablemeshcomponent.h>
 #include <imguiutils.h>
 #include "realsenserenderframecomponent.h"
+#include "realsenserenderframescomponent.h"
 
 namespace nap 
 {    
@@ -36,10 +37,6 @@ namespace nap
 
         mRealSenseDevice = mResourceManager->findObject<RealSenseDevice>("RealSenseDevice");
         if (!error.check(mRealSenseDevice != nullptr, "unable to find RealSenseDevice with name: %s", "RealSenseDevice"))
-            return false;
-
-        mRealSenseEntity = mScene->findEntity("RealSenseEntity");
-        if (!error.check(mRealSenseEntity != nullptr, "unable to find Entity with name: %s", "RealSenseEntity"))
             return false;
 
 		// Get the camera and origin Gnomon entity
@@ -140,22 +137,19 @@ namespace nap
         // Display render textures in GUI
         if (ImGui::CollapsingHeader("Textures"))
         {
-            auto* color_renderer = mRealSenseEntity->findComponentByID<RealSenseRenderFrameComponentInstance>("RenderColorComponent");
-            assert(color_renderer!= nullptr);
-            if(color_renderer->isRenderTextureInitialized())
+            auto& frames_renderer = mRenderEntity->getComponent<RealSenseRenderFramesComponentInstance>();
+            if(frames_renderer.isRenderTextureInitialized(REALSENSE_STREAMTYPE_COLOR))
             {
-                auto& color_texture = color_renderer->getRenderTexture();
+                auto& color_texture = frames_renderer.getRenderTexture(REALSENSE_STREAMTYPE_COLOR);
                 float col_width = ImGui::GetColumnWidth();
                 float ratio = (float)color_texture.getHeight() / (float)color_texture.getWidth();
                 ImGui::Text("Color Texture :");
                 ImGui::Image(color_texture, ImVec2(col_width, col_width * ratio), ImVec2(0, 0), ImVec2(1, 1));
             }
 
-            auto* depth_renderer = mRealSenseEntity->findComponentByID<RealSenseRenderFrameComponentInstance>("RenderDepthComponent");
-            assert(depth_renderer!= nullptr);
-            if(depth_renderer->isRenderTextureInitialized())
+            if(frames_renderer.isRenderTextureInitialized(REALSENSE_STREAMTYPE_DEPTH))
             {
-                auto& depth_texture = depth_renderer->getRenderTexture();
+                auto& depth_texture =  frames_renderer.getRenderTexture(REALSENSE_STREAMTYPE_DEPTH);
                 float col_width = ImGui::GetColumnWidth();
                 float ratio = (float)depth_texture.getHeight() / (float)depth_texture.getWidth();
                 ImGui::Text("Depth Texture :");

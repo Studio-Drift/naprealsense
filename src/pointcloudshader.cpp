@@ -25,7 +25,7 @@ namespace nap
 {
     namespace shader
     {
-        inline constexpr const char* pointcloud = "pointcloud";
+        inline constexpr const char* pointcloud = "point";
     }
 
 
@@ -65,6 +65,6 @@ namespace nap
             return false;
 
         // Compile shader
-        return this->load(shader::pointcloud, vert_source.data(), vert_source.size(), frag_source.data(), frag_source.size(), errorState);
+        return this->load(shader::pointcloud, {}, vert_source.data(), vert_source.size(), frag_source.data(), frag_source.size(), errorState);
     }
 }

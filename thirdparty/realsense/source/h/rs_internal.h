@@ -1,5 +1,5 @@
 /* License: Apache 2.0. See LICENSE file in root directory.
-   Copyright(c) 2017 Intel Corporation. All Rights Reserved. */
+   Copyright(c) 2017 RealSense, Inc. All Rights Reserved. */
 
 /** \file rs_internal.h
 * \brief
@@ -22,10 +22,8 @@ extern "C" {
 /**
 * Firmware size constants
 */
-    const int signed_fw_size = 0x18031C;
-    const int signed_sr300_size = 0x0C025C;
-    const int unsigned_fw_size = 0x200000;
-    const int unsigned_sr300_size = 0x100000;
+    const unsigned int signed_fw_size = 0x18031C;
+    const unsigned int unsigned_fw_size = 0x200000;
 
 /**
  * librealsense Recorder is intended for effective unit-testing
@@ -135,6 +133,7 @@ struct rs2_software_device_destruction_callback;
 
 /**
  * Create librealsense context that will try to record all operations over librealsense into a file
+ * \deprecated
  * \param[in] api_version realsense API version as provided by RS2_API_VERSION macro
  * \param[in] filename string representing the name of the file to record
  * \param[in] section  string representing the name of the section within existing recording
@@ -146,6 +145,7 @@ rs2_context* rs2_create_recording_context(int api_version, const char* filename,
 /**
  * Create librealsense context that given a file will respond to calls exactly as the recording did
  * if the user calls a method that was either not called during recording or violates causality of the recording error will be thrown
+ * \deprecated
  * \param[in] api_version realsense API version as provided by RS2_API_VERSION macro
  * \param[in] filename string representing the name of the file to play back from
  * \param[in] section  string representing the name of the section within existing recording
@@ -155,15 +155,16 @@ rs2_context* rs2_create_recording_context(int api_version, const char* filename,
 rs2_context* rs2_create_mock_context(int api_version, const char* filename, const char* section, rs2_error** error);
 
 /**
-* Create librealsense context that given a file will respond to calls exactly as the recording did
-* if the user calls a method that was either not called during recording or violates causality of the recording error will be thrown
-* \param[in] api_version realsense API version as provided by RS2_API_VERSION macro
-* \param[in] filename string representing the name of the file to play back from
-* \param[in] section  string representing the name of the section within existing recording
-* \param[in] min_api_version reject any file that was recorded before this version
-* \param[out] error  if non-null, receives any error that occurs during this call, otherwise, errors are ignored
-* \return            context object, should be released by rs2_delete_context
-*/
+ * Create librealsense context that given a file will respond to calls exactly as the recording did
+ * if the user calls a method that was either not called during recording or violates causality of the recording error will be thrown
+ * \deprecated
+ * \param[in] api_version realsense API version as provided by RS2_API_VERSION macro
+ * \param[in] filename string representing the name of the file to play back from
+ * \param[in] section  string representing the name of the section within existing recording
+ * \param[in] min_api_version reject any file that was recorded before this version
+ * \param[out] error  if non-null, receives any error that occurs during this call, otherwise, errors are ignored
+ * \return            context object, should be released by rs2_delete_context
+ */
 rs2_context* rs2_create_mock_context_versioned(int api_version, const char* filename, const char* section, const char* min_api_version, rs2_error** error);
 
 /**
@@ -359,6 +360,20 @@ void rs2_software_sensor_detach(rs2_sensor* sensor, rs2_error** error);
 
 
 /**
+ * \brief Starts collecting FW log messages in the device.
+ * \param[in] dev            Device that will start collecting log messages.
+ * \param[out] error         If non-null, receives any error that occurs during this call, otherwise, errors are
+ */
+void rs2_start_collecting_fw_logs( rs2_device * dev, rs2_error ** error );
+
+/**
+ * \brief Stops collecting FW log messages in the device.
+ * \param[in] dev            Device that will stop collecting log messages.
+ * \param[out] error         If non-null, receives any error that occurs during this call, otherwise, errors are
+ */
+void rs2_stop_collecting_fw_logs( rs2_device * dev, rs2_error ** error );
+
+/**
 * \brief Creates RealSense firmware log message.
 * \param[in] dev            Device from which the FW log will be taken using the created message
 * \param[out] error         If non-null, receives any error that occurs during this call, otherwise, errors are ignored.
@@ -482,12 +497,22 @@ const char* rs2_get_fw_log_parsed_message(rs2_firmware_log_parsed_message* fw_lo
 const char* rs2_get_fw_log_parsed_file_name(rs2_firmware_log_parsed_message* fw_log_parsed_msg, rs2_error** error);
 
 /**
-* \brief Gets RealSense firmware log parsed message thread name.
+* \brief Gets RealSense firmware log parsed message source (SoC) or thread name.
 * \param[in] fw_log_parsed_msg      firmware log parsed message object
 * \param[out] error                 If non-null, receives any error that occurs during this call, otherwise, errors are ignored.
-* \return                           thread name of the firmware log parsed message
+* \return                           source (SoC) or thread name of the firmware log parsed message
 */
 const char* rs2_get_fw_log_parsed_thread_name(rs2_firmware_log_parsed_message* fw_log_parsed_msg, rs2_error** error);
+
+/**
+ * \brief Gets RealSense firmware log parsed message module name.
+ * \param[in] fw_log_parsed_msg      firmware log parsed message object
+ * \param[out] error                 If non-null, receives any error that occurs during this call, otherwise, errors are
+ * ignored. \return                  module name of the firmware log parsed message
+ */
+const char * rs2_get_fw_log_parsed_module_name( rs2_firmware_log_parsed_message * fw_log_parsed_msg,
+                                                rs2_error ** error );
+
 
 /**
 * \brief Gets RealSense firmware log parsed message severity.
