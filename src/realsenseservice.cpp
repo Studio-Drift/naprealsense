@@ -56,7 +56,13 @@ namespace nap
         const auto settings = R"(
             {
 	            "dds": {
-		            "enabled": true
+		            "enabled": true,
+					"device-initialization-timeout-ms": 5000,
+					"device": {
+					    "control": {
+					        "reply-timeout-ms": 2000
+					    }
+					}
 	            }
             }
         )";
@@ -112,6 +118,16 @@ namespace nap
                     Logger::warn("Error querying serial for RealSense device %d", i);
                     continue;
                 }
+
+            	rs2::eth_config_device eth_device(device);
+            	if (eth_device.supports_eth_config())
+            	{
+            		eth_device.set_link_priority(RS2_LINK_PRIORITY_ETH_FIRST);
+            		eth_device.set_link_timeout(30000);
+
+            		// Not supported on all firmware
+            		// eth_device.set_transmission_delay(48);
+            	}
 
                 // Find new devices
                 const auto& serial = devices_found.emplace_back(device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
@@ -170,7 +186,7 @@ namespace nap
 	    {
 	        for (const auto& dev : mDevices)
 	        {
-	            if (dev->getIsConnected() && dev->getCameraInfo().mSerial == dev_to_stop)
+	            if (dev->isConnected() && dev->getCameraInfo().mSerial == dev_to_stop)
 	                dev->stop();
 	        }
 	    }
@@ -182,7 +198,7 @@ namespace nap
             for (const auto& dev : mDevices)
             {
                 // Check if the device is connected and whether another device can claim the current device
-                if (dev->getIsConnected() || (dev->getCameraInfo().mSerial != dev_to_restart && !dev->mSerial.empty()))
+                if (dev->isConnected() || (dev->getCameraInfo().mSerial != dev_to_restart && !dev->mSerial.empty()))
                     continue;
 
                 // First check if any other devices make a claim on this device
@@ -193,7 +209,7 @@ namespace nap
                         continue;
 
                     // another device has a claim OR other device is disconnected and was previously connected to this serial
-                    if (other_dev->mSerial == dev_to_restart || (other_dev->getCameraInfo().mSerial == dev_to_restart && !other_dev->getIsConnected()))
+                    if (other_dev->mSerial == dev_to_restart || (other_dev->getCameraInfo().mSerial == dev_to_restart && !other_dev->isConnected()))
                     {
                         skip = true;
                         break;
@@ -241,23 +257,25 @@ namespace nap
 
     bool RealSenseService::registerDevice(nap::RealSenseDevice *device, utility::ErrorState& errorState)
     {
-        auto it = std::find(mDevices.begin(), mDevices.end(), device);
-        if (it != mDevices.end())
+		if (device->mSerial.empty())
+		{
+			errorState.fail("Empty serial specified");
+			return false;
+		}
+
+        if (std::find(mDevices.begin(), mDevices.end(), device) != mDevices.end())
         {
             errorState.fail("Device already registered");
             return false;
         }
-        for (auto* other : mDevices)
-        {
-            if (!other->mSerial.empty() && !device->mSerial.empty())
-            {
-                if (other->mSerial==device->mSerial)
-                {
-                    errorState.fail(utility::stringFormat("Device with serial %s already registered", device->mSerial.c_str()));
-                    return false;
-                }
-            }
-        }
+
+		const auto it = std::find_if(mDevices.begin(), mDevices.end(), [dev=device](auto& other) {
+			return other->mSerial == dev->mSerial;
+		});
+
+		if (!errorState.check(it == mDevices.end(), "Device with serial %s already registered", device->mSerial.c_str()))
+			return false;
+
         mDevices.emplace_back(device);
         return true;
     }

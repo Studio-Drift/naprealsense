@@ -8,6 +8,7 @@
 RTTI_BEGIN_CLASS(nap::RealSenseStreamDescription)
     RTTI_PROPERTY("Format", &nap::RealSenseStreamDescription::mFormat, nap::rtti::EPropertyMetaData::Default)
     RTTI_PROPERTY("Stream", &nap::RealSenseStreamDescription::mStream, nap::rtti::EPropertyMetaData::Default)
+    RTTI_PROPERTY("FrameRate", &nap::RealSenseStreamDescription::mFrameRate, nap::rtti::EPropertyMetaData::Default)
 RTTI_END_CLASS
 
 RTTI_BEGIN_CLASS_NO_DEFAULT_CONSTRUCTOR(nap::RealSenseDevice)
@@ -114,7 +115,10 @@ namespace nap
 
                 auto rs2_stream_type = static_cast<rs2_stream>(stream->mStream);
                 auto rs2_stream_format = static_cast<rs2_format>(stream->mFormat);
-                mImplementation->mConfig.enable_stream(rs2_stream_type, rs2_stream_format);
+                int rs2_frame_rate = static_cast<int>(stream->mFrameRate);
+                constexpr static int frame_width = 448; //640; //896; //1280;
+                constexpr static int frame_height = 252; //360; //504; //720;
+                mImplementation->mConfig.enable_stream(rs2_stream_type, frame_width, frame_height, rs2_stream_format, rs2_frame_rate);
             }
 
             if (!mSerial.empty())
@@ -133,12 +137,13 @@ namespace nap
                         .get_stream(static_cast<rs2_stream>(stream->mStream))
                         .is<rs2::video_stream_profile>())
                     {
-                        auto intrinsics_rs2 = mImplementation->mPipe
+                        const auto profile = mImplementation->mPipe
                             .get_active_profile()
                             .get_stream(static_cast<rs2_stream>(stream->mStream))
-                            .as<rs2::video_stream_profile>()
-                            .get_intrinsics();
-                        mCameraIntrinsics.emplace(stream->mStream, RealSenseCameraIntrinsics::fromRS2Intrinsics(intrinsics_rs2));
+                            .as<rs2::video_stream_profile>();
+
+                        mCameraIntrinsics.emplace(stream->mStream, RealSenseCameraIntrinsics::fromRS2Intrinsics(profile.get_intrinsics()));
+                        mFastestStreamFrameRate = std::max(mFastestStreamFrameRate, profile.fps());
                     }
                 }
 
@@ -294,9 +299,10 @@ namespace nap
     {
         try
         {
+            const int frame_poll_interval = 1000/(mFastestStreamFrameRate > 0) ? mFastestStreamFrameRate : 30;
             while(mRun.load())
             {
-                uint millis = 0;
+                int millis = 0;
 
                 // poll for new frameset
                 rs2::frameset data;
@@ -314,11 +320,11 @@ namespace nap
                     millis = timer.getMillis().count();
                 }
 
-                int wait = 20 - millis;
+                int wait = frame_poll_interval - millis;
                 if(wait < 0)
                     wait = 0;
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(wait));
+                std::this_thread::sleep_for(Milliseconds(wait));
             }
         }
         catch(const rs2::error& e) {

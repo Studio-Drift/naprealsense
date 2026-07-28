@@ -103,7 +103,7 @@ namespace nap
         auto& frames_renderer = getEntityInstance()->getComponent<RealSenseRenderFramesComponentInstance>();
         mReady =    frames_renderer.isRenderTextureInitialized(ERealSenseStreamType::REALSENSE_STREAMTYPE_DEPTH) &&
                     frames_renderer.isRenderTextureInitialized(ERealSenseStreamType::REALSENSE_STREAMTYPE_COLOR) &&
-                    mDevice->getIsConnected();
+                    mDevice->isConnected();
         if(!mReady)
             return;
 

@@ -45,6 +45,7 @@ namespace nap
 
         ERealSenseStreamFormat  mFormat = REALSENSE_FORMAT_RGBA8;       ///< Property: 'Format' stream format
         ERealSenseStreamType    mStream = REALSENSE_STREAMTYPE_COLOR;   ///< Property: 'Stream' stream type
+        uint                    mFrameRate = 0;                         ///< Property: 'FrameRate' requested framerate, 0 = any
     };
 
     /**
@@ -120,7 +121,12 @@ namespace nap
          * Returns whether current device is connected
          * @return true on connected
          */
-        bool getIsConnected() const{ return mIsConnected; }
+        bool isConnected() const{ return mIsConnected; }
+
+        /**
+         * @return if the camera is actively acquiring frames
+         */
+        bool isRunning() const{ return mRun.load(); }
 
         // properties
         std::string mSerial; ///< Property: 'Serial' serial of device to use, keep empty to get first device available
@@ -149,6 +155,7 @@ namespace nap
         std::atomic<float>      mLatestDepthScale;
 
         bool mIsConnected = false;
+        int mFastestStreamFrameRate = -1;
 
         RealSenseService&       mService;
         RealSenseCameraInfo     mCameraInfo;
