@@ -66,7 +66,13 @@ namespace nap
         mService(service) { }
 
 
-    RealSenseDevice::~RealSenseDevice(){}
+    RealSenseDevice::~RealSenseDevice()
+    {
+        // Ensure the device is deregistered from the service
+        // when not owned by a manual/runtime object management solution
+        if (mService.hasSerialNumber(mSerial))
+            onDestroy();
+    }
 
 
     bool RealSenseDevice::init(utility::ErrorState &errorState)
@@ -105,7 +111,9 @@ namespace nap
             for (const auto& stream : mStreams)
             {
                 auto stream_type = stream->mStream;
-                const auto it = std::find_if(stream_types.begin(), stream_types.end(), [stream_type](ERealSenseStreamType other) { return stream_type == other; });
+                const auto it = std::find_if(stream_types.begin(), stream_types.end(), [stream_type](ERealSenseStreamType other) {
+                    return stream_type == other;
+                });
                 if (it != stream_types.end())
                 {
                     errorState.fail("Cannot open multiple streams of the same stream type!");
