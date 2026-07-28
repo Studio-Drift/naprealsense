@@ -127,16 +127,6 @@ namespace nap
             		continue;
             	}
 
-            	rs2::eth_config_device eth_device(device);
-            	if (eth_device.supports_eth_config())
-            	{
-            		eth_device.set_link_priority(RS2_LINK_PRIORITY_ETH_FIRST);
-            		eth_device.set_link_timeout(30000);
-
-            		// Not supported on all firmware
-            		// eth_device.set_transmission_delay(48);
-            	}
-
                 // Find new devices
                 devices_found.emplace_back(device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
                 if (auto it = std::find(mConnectedSerialNumbers.begin(), mConnectedSerialNumbers.end(), serial); it == mConnectedSerialNumbers.end())
