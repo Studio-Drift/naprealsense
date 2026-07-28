@@ -113,11 +113,19 @@ namespace nap
             for (size_t i = 0 ; i < list.size(); i++)
             {
                 const auto device = list[i];
+
                 if (!device.supports(RS2_CAMERA_INFO_SERIAL_NUMBER))
                 {
                     Logger::warn("Error querying serial for RealSense device %d", i);
                     continue;
                 }
+
+            	const std::string serial = device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER);
+            	if (serial.empty())
+            	{
+            		Logger::warn("Error querying serial for RealSense device %d", i);
+            		continue;
+            	}
 
             	rs2::eth_config_device eth_device(device);
             	if (eth_device.supports_eth_config())
@@ -130,7 +138,7 @@ namespace nap
             	}
 
                 // Find new devices
-                const auto& serial = devices_found.emplace_back(device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
+                devices_found.emplace_back(device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
                 if (auto it = std::find(mConnectedSerialNumbers.begin(), mConnectedSerialNumbers.end(), serial); it == mConnectedSerialNumbers.end())
                 {
                     RealSenseCameraInfo info{device};

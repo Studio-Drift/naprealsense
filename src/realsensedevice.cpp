@@ -66,13 +66,7 @@ namespace nap
         mService(service) { }
 
 
-    RealSenseDevice::~RealSenseDevice()
-    {
-        // Ensure the device is deregistered from the service
-        // when not owned by a manual/runtime object management solution
-        if (mService.hasSerialNumber(mSerial))
-            onDestroy();
-    }
+    RealSenseDevice::~RealSenseDevice(){}
 
 
     bool RealSenseDevice::init(utility::ErrorState &errorState)
