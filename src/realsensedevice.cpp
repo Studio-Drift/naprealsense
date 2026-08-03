@@ -2,12 +2,30 @@
 #include "realsenseservice.h"
 #include "realsenseframesetlistenercomponent.h"
 
-// RealSense includes
 #include <rs.hpp>
+
+RTTI_BEGIN_ENUM(nap::RealSenseStreamDescription::EFrameRate)
+    RTTI_ENUM_VALUE(nap::RealSenseStreamDescription::EFrameRate::FPSAUTO, "FPSAUTO"),
+    RTTI_ENUM_VALUE(nap::RealSenseStreamDescription::EFrameRate::FPS5, "FPS5"),
+    RTTI_ENUM_VALUE(nap::RealSenseStreamDescription::EFrameRate::FPS15, "FPS15"),
+    RTTI_ENUM_VALUE(nap::RealSenseStreamDescription::EFrameRate::FPS25, "FPS25"),
+    RTTI_ENUM_VALUE(nap::RealSenseStreamDescription::EFrameRate::FPS30, "FPS30"),
+    RTTI_ENUM_VALUE(nap::RealSenseStreamDescription::EFrameRate::FPS60, "FPS60"),
+    RTTI_ENUM_VALUE(nap::RealSenseStreamDescription::EFrameRate::FPS90, "FPS90")
+RTTI_END_ENUM
+
+RTTI_BEGIN_ENUM(nap::RealSenseStreamDescription::EResolution)
+    RTTI_ENUM_VALUE(nap::RealSenseStreamDescription::EResolution::RESAUTO, "RESAUTO"),
+    RTTI_ENUM_VALUE(nap::RealSenseStreamDescription::EResolution::RES256X144, "RES256X144"),
+    RTTI_ENUM_VALUE(nap::RealSenseStreamDescription::EResolution::RES640X360, "RES640X360"),
+    RTTI_ENUM_VALUE(nap::RealSenseStreamDescription::EResolution::RES1280X720, "RES1280X720"),
+    RTTI_ENUM_VALUE(nap::RealSenseStreamDescription::EResolution::RES1280X800, "RES1280X800")
+RTTI_END_ENUM
 
 RTTI_BEGIN_CLASS(nap::RealSenseStreamDescription)
     RTTI_PROPERTY("Format", &nap::RealSenseStreamDescription::mFormat, nap::rtti::EPropertyMetaData::Default)
     RTTI_PROPERTY("Stream", &nap::RealSenseStreamDescription::mStream, nap::rtti::EPropertyMetaData::Default)
+    RTTI_PROPERTY("Resolution", &nap::RealSenseStreamDescription::mResolution, nap::rtti::EPropertyMetaData::Default)
     RTTI_PROPERTY("FrameRate", &nap::RealSenseStreamDescription::mFrameRate, nap::rtti::EPropertyMetaData::Default)
 RTTI_END_CLASS
 
@@ -15,7 +33,7 @@ RTTI_BEGIN_CLASS_NO_DEFAULT_CONSTRUCTOR(nap::RealSenseDevice)
     RTTI_CONSTRUCTOR(nap::RealSenseService&)
     RTTI_PROPERTY("Serial", &nap::RealSenseDevice::mSerial, nap::rtti::EPropertyMetaData::Default)
     RTTI_PROPERTY("MaxFrameSize", &nap::RealSenseDevice::mMaxFrameSize, nap::rtti::EPropertyMetaData::Default)
-    RTTI_PROPERTY("Streams", &nap::RealSenseDevice::mStreams, nap::rtti::EPropertyMetaData::Embedded)
+    RTTI_PROPERTY("Streams", &nap::RealSenseDevice::mStreams, nap::rtti::EPropertyMetaData::Required | nap::rtti::EPropertyMetaData::Embedded)
     RTTI_PROPERTY("AllowFailure", &nap::RealSenseDevice::mAllowFailure, nap::rtti::EPropertyMetaData::Default)
     RTTI_PROPERTY("MinUSBVersion", &nap::RealSenseDevice::mMinimalRequiredUSBType, nap::rtti::EPropertyMetaData::Default)
 RTTI_END_CLASS
@@ -26,6 +44,25 @@ namespace nap
     {
         Logger::error(obj, utility::stringFormat("RealSense error calling %s(%s)\n     %s,",
             e.get_failed_function().c_str(), e.get_failed_args().c_str(), e.what()));
+    }
+
+
+    static glm::ivec2 getResolution(RealSenseStreamDescription::EResolution option)
+    {
+        switch (option)
+        {
+            case RealSenseStreamDescription::EResolution::RES1280X800:
+                return { 1280, 800 };
+            case RealSenseStreamDescription::EResolution::RES1280X720:
+                return { 1280, 720 };
+            case RealSenseStreamDescription::EResolution::RES640X360:
+                return { 640, 360 };
+            case RealSenseStreamDescription::EResolution::RES256X144:
+                return { 256, 144 };
+            case RealSenseStreamDescription::EResolution::RESAUTO:
+            default:
+                return { 0, 0 };
+        }
     }
 
 
@@ -62,14 +99,14 @@ namespace nap
     // RealSenseDevice
     //////////////////////////////////////////////////////////////////////////
 
-    RealSenseDevice::RealSenseDevice(RealSenseService &service) :
+    RealSenseDevice::RealSenseDevice(RealSenseService& service) :
         mService(service) { }
 
 
     RealSenseDevice::~RealSenseDevice(){}
 
 
-    bool RealSenseDevice::init(utility::ErrorState &errorState)
+    bool RealSenseDevice::init(utility::ErrorState& errorState)
     {
         if (!handleError(mService.registerDevice(this, errorState), "Cannot register device", errorState))
             return mAllowFailure;
@@ -78,7 +115,7 @@ namespace nap
     }
 
 
-    bool RealSenseDevice::start(utility::ErrorState &errorState)
+    bool RealSenseDevice::start(utility::ErrorState& errorState)
     {
         if(!mRun.load())
         {
@@ -118,9 +155,8 @@ namespace nap
                 auto rs2_stream_type = static_cast<rs2_stream>(stream->mStream);
                 auto rs2_stream_format = static_cast<rs2_format>(stream->mFormat);
                 int rs2_frame_rate = static_cast<int>(stream->mFrameRate);
-                constexpr static int frame_width = 448; //640; //896; //1280;
-                constexpr static int frame_height = 252; //360; //504; //720;
-                mImplementation->mConfig.enable_stream(rs2_stream_type, frame_width, frame_height, rs2_stream_format, rs2_frame_rate);
+                auto rs2_res = getResolution(stream->mResolution);
+                mImplementation->mConfig.enable_stream(rs2_stream_type, rs2_res.x, rs2_res.y, rs2_stream_format, rs2_frame_rate);
             }
 
             if (!mSerial.empty())
@@ -195,7 +231,7 @@ namespace nap
     }
 
 
-    bool RealSenseDevice::restart(utility::ErrorState &errorState)
+    bool RealSenseDevice::restart(utility::ErrorState& errorState)
     {
         // If we are running, first stop
         if(mRun.load())

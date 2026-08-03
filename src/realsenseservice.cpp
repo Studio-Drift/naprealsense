@@ -227,6 +227,12 @@ namespace nap
 	}
 
 
+	bool RealSenseService::isCameraAvailable(const std::string& serial) const
+	{
+		return mAvailableCameraInfos.find(serial) != mAvailableCameraInfos.end();
+	}
+
+
     const RealSenseCameraInfo& RealSenseService::getCameraInfo(const std::string& serial)
     {
         assert(mAvailableCameraInfos.find(serial)!=mAvailableCameraInfos.end());

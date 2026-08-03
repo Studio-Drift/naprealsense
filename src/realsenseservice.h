@@ -66,7 +66,7 @@ namespace nap
 		void shutdown() override;
 
         /**
-         * Check whether device with serial number is present
+         * Check whether device with serial number is connected
          * @param serialNumber
          * @return true if device is present
          */
@@ -78,8 +78,16 @@ namespace nap
          */
         const std::vector<std::string>& getConnectedSerialNumbers() const{ return mConnectedSerialNumbers; }
 
+
         /**
-         * Returns camera info for a specific serial number, asserts when serial is not connected, first use hasSerialNumber
+         * Returns whether the camera of the specified serial number is currently visible/detected
+         * @param serial serial number
+         * @return whether the camera of the specified serial number is currently visible/detected
+         */
+        bool isCameraAvailable(const std::string& serial) const;
+
+        /**
+         * Returns camera info for a specific serial number, asserts when serial is not connected, first use isCameraAvailable
          * @param serial serial number
          * @return camera info
          */

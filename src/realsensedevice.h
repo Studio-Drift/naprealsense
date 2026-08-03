@@ -33,6 +33,33 @@ namespace nap
     {
     RTTI_ENABLE(Resource)
     public:
+
+        /**
+         * RealSense Device Framerate
+         */
+        enum class EFrameRate : int
+        {
+            FPSAUTO = 0,
+            FPS5    = 5,
+            FPS15   = 15,
+            FPS25   = 25,
+            FPS30   = 30,
+            FPS60   = 60,
+            FPS90   = 90
+        };
+
+        /**
+         * RealSense Device Resolution
+         */
+        enum class EResolution : int
+        {
+            RESAUTO     = 0,
+            RES256X144  = 1,
+            RES640X360  = 2,
+            RES1280X720 = 3,
+            RES1280X800 = 4
+        };
+
         /**
          * Constructor
          */
@@ -45,7 +72,8 @@ namespace nap
 
         ERealSenseStreamFormat  mFormat = REALSENSE_FORMAT_RGBA8;       ///< Property: 'Format' stream format
         ERealSenseStreamType    mStream = REALSENSE_STREAMTYPE_COLOR;   ///< Property: 'Stream' stream type
-        uint                    mFrameRate = 0;                         ///< Property: 'FrameRate' requested framerate, 0 = any
+        EResolution             mResolution = EResolution::RESAUTO;     ///< Property: 'Resolution' requested resolution
+        EFrameRate              mFrameRate = EFrameRate::FPS30;         ///< Property: 'FrameRate' requested framerate
     };
 
     /**
