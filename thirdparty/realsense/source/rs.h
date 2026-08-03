@@ -26,9 +26,9 @@ extern "C" {
 #include "h/rs_eth_config.h"
 
 #define RS2_API_MAJOR_VERSION    2
-#define RS2_API_MINOR_VERSION    57
-#define RS2_API_PATCH_VERSION    7
-#define RS2_API_BUILD_VERSION    10378
+#define RS2_API_MINOR_VERSION    58
+#define RS2_API_PATCH_VERSION    3
+#define RS2_API_BUILD_VERSION    0
 
 #ifndef STRINGIFY
 #define STRINGIFY(arg) #arg
